@@ -1,0 +1,20 @@
+name: Chercher des photos de rêve
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/fetch_reves.py
+      - name: Publier les candidates sur la branche reves-candidats
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan reves-candidats
+          git rm -rfq --cached .
+          git add candidats
+          git commit -qm "Photos candidates pour les rêves"
+          git push -f origin reves-candidats
