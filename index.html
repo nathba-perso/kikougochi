@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>Kikougochi</title>
+  <meta name="description" content="Fais grandir ton petit guépard, le kikou." />
+  <meta name="theme-color" content="#3b2414" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Kikougochi" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <main id="app">
+    <header>
+      <h1>Kikougochi</h1>
+      <button id="menu-btn" class="icon-btn" aria-label="Menu">☰</button>
+    </header>
+
+    <div id="stage-wrap"><canvas id="scene" aria-label="Le kikou"></canvas></div>
+    <p id="caption" aria-live="polite">&nbsp;</p>
+
+    <nav id="actions">
+      <button data-action="nourrir"><span class="ico">🍖</span><span>Nourrir</span></button>
+      <button data-action="pip"><span class="ico">👉</span><span>Pip</span></button>
+      <button data-action="calin"><span class="ico">🤗</span><span>Câlin</span></button>
+      <button data-action="bisou"><span class="ico">💋</span><span>Bisou</span></button>
+    </nav>
+
+    <div id="install" hidden>
+      <p id="install-text"></p>
+      <button id="install-go" hidden>Installer</button>
+      <button id="install-close" class="icon-btn" aria-label="Fermer">×</button>
+    </div>
+  </main>
+
+  <!-- fenêtres -->
+  <div id="end" class="overlay" hidden>
+    <div class="card">
+      <h2 id="end-title"></h2>
+      <p id="end-text"></p>
+      <button id="end-restart" class="primary">Recommencer</button>
+    </div>
+  </div>
+
+  <div id="dream" class="overlay" hidden>
+    <div class="card dream-card">
+      <p class="small">Kikou te partage un rêve…</p>
+      <div class="thought"><img id="dream-img" alt="Un rêve de bébé guépard" /></div>
+      <p id="dream-text" class="small"></p>
+      <button id="dream-close" class="primary">Merci kikou</button>
+    </div>
+  </div>
+
+  <div id="menu" class="overlay" hidden>
+    <div class="card">
+      <h2>Menu</h2>
+      <button data-open="album">Album des rêves</button>
+      <button data-open="backup">Code de sauvegarde</button>
+      <button data-open="install-help">Installer sur le téléphone</button>
+      <button id="restart" class="danger">Recommencer une partie</button>
+      <button data-close class="ghost">Fermer</button>
+    </div>
+  </div>
+
+  <div id="album" class="overlay" hidden>
+    <div class="card">
+      <h2>Album des rêves</h2>
+      <p id="album-count" class="small"></p>
+      <div id="album-grid"></div>
+      <button data-close class="ghost">Fermer</button>
+    </div>
+  </div>
+
+  <div id="backup" class="overlay" hidden>
+    <div class="card">
+      <h2>Code de sauvegarde</h2>
+      <p class="small">Copie ce code et garde-le quelque part (notes, message à toi-même). Il permet de retrouver ton kikou sur un autre téléphone ou si le jeu a été effacé.</p>
+      <textarea id="backup-code" rows="4" readonly></textarea>
+      <button id="backup-copy">Copier le code</button>
+      <p class="small">Pour restaurer un kikou, colle son code ici :</p>
+      <textarea id="restore-code" rows="3" placeholder="KIKOU1:…"></textarea>
+      <button id="restore-go">Restaurer ce kikou</button>
+      <p id="backup-msg" class="small"></p>
+      <button data-close class="ghost">Fermer</button>
+    </div>
+  </div>
+
+  <div id="install-help" class="overlay" hidden>
+    <div class="card">
+      <h2>Installer le jeu</h2>
+      <p class="small"><b>iPhone</b> : ouvre ce lien dans Safari, touche le bouton Partager (le carré avec une flèche), puis « Sur l'écran d'accueil ».</p>
+      <p class="small"><b>Android</b> : dans Chrome, menu ⋮ puis « Installer l'application » ou « Ajouter à l'écran d'accueil ».</p>
+      <p class="small">Une fois installé, ouvre toujours le kikou depuis son icône : c'est là que sa sauvegarde est gardée.</p>
+      <button data-close class="ghost">Fermer</button>
+    </div>
+  </div>
+
+  <div id="confirm" class="overlay" hidden>
+    <div class="card">
+      <h2>Recommencer ?</h2>
+      <p class="small">Ton kikou actuel s'en ira pour toujours.</p>
+      <button id="confirm-yes" class="danger">Oui, recommencer</button>
+      <button data-close class="ghost">Non</button>
+    </div>
+  </div>
+
+  <div id="debug" hidden></div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

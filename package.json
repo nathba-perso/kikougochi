@@ -1,0 +1,22 @@
+{
+  "name": "kikougochi",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "simulate": "esbuild scripts/simulate.ts --bundle --platform=node --outfile=node_modules/.sim.mjs --format=esm && TZ=UTC node node_modules/.sim.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5"
+  },
+  "dependencies": {
+    "idb-keyval": "^6.2.1"
+  },
+  "type": "module"
+}
