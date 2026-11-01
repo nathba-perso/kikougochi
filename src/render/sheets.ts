@@ -7,7 +7,7 @@ interface Manifest { tickMs: number; stages: Record<string, StageSheet> }
 // Repli quand une réaction n'a pas encore sa propre planche : on rejoue un état proche.
 const FALLBACK: Record<string, string> = {
   'r:content': 'content', 'r:fete': 'teuf', 'r:pascontent': 'grognon', 'r:sendort': 'dort',
-  'r:dortsourit': 'dort', 'r:refuse': 'grognon', 'r:reveille': 'colere', 'r:mange': 'calme',
+  'r:dortsourit': 'dort', 'r:refuse': 'grognon', 'r:apaise': 'grognon', 'r:reveille': 'colere', 'r:mange': 'calme',
 };
 
 export class Sheets {

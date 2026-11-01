@@ -59,10 +59,11 @@ export function actionClip(a: Action, idleAnim: string, stage: number, onKiss?: 
   }
 }
 
+// Textes des réactions : des exclamations, pour ne pas se confondre avec l'état affiché ensuite.
 const CAPTIONS: Record<Reaction, string> = {
-  mange: 'Kikou mange', refuse: 'Kikou refuse de manger', content: 'Kikou est content',
-  sendort: "Kikou s'endort", fete: 'Kikou fait la fête', pascontent: "Kikou n'est pas content",
-  reveille: "Tu l'as réveillé…", dortsourit: 'Kikou sourit en dormant',
+  mange: 'Miam, miam !', refuse: 'Non merci, plus faim !', content: 'Il a adoré ça !',
+  sendort: "Il s'endort dans tes bras…", fete: 'Youpiii !', pascontent: "Grrr, il n'a pas aimé !",
+  reveille: "Oh ! Tu l'as réveillé…", dortsourit: 'Il sourit en dormant', apaise: 'Ça le calme un peu…',
 };
 
 export function reactionClip(r: Reaction): Clip {
@@ -78,6 +79,7 @@ export function reactionClip(r: Reaction): Clip {
       c.over = (sc, t, k) => bubble(sc, k, (x, y) => sc.prop('croix', x + 2, y + 1));
       break;
     case 'content': c.over = (sc, t, k) => smallHeart(sc, t, k, 1500); break;
+    case 'apaise': c.dur = 1600; c.over = (sc, t, k) => smallHeart(sc, t, k, 1600); break;
     case 'fete': c.dur = 2000; c.over = (sc, t, k) => confetti(sc, t, 30); break;
     case 'pascontent': c.over = (sc, t, k) => sc.prop('nuage', k.x + k.w - 2, Math.max(0, k.y - 6), t); break;
     case 'reveille': c.dur = 1100; c.over = (sc, t, k) => sc.prop('exclam', k.x + k.w + 1, Math.max(0, k.y - 6)); break;

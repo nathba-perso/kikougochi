@@ -74,3 +74,30 @@ export function kikouPose(stage: number, anim: string, t: number): Pose {
       return { grid: g, dx: 0, dy: 0, flip: false };
   }
 }
+
+/** Dessine une grille sur un contexte 2D (icônes des boutons). */
+export function drawGrid(ctx: CanvasRenderingContext2D, g: Grid, x: number, y: number, pal?: Record<string, string>) {
+  g.forEach((row, j) => [...row].forEach((ch, i) => {
+    const c = ch === '.' ? undefined : (pal?.[ch] ?? PALETTE[ch]);
+    if (c) { ctx.fillStyle = c; ctx.fillRect(x + i, y + j, 1, 1); }
+  }));
+}
+
+/** Icônes des boutons d'action, dessinées avec les accessoires des animations. */
+export function actionIcon(action: string): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = 12; c.height = 12; c.className = 'ico';
+  const ctx = c.getContext('2d')!;
+  const put = (name: string, x: number, y: number, f = 0) => { const a = prop(name); drawGrid(ctx, a.frames[f % a.frames.length], x, y, a.pal); };
+  const center = (name: string, f = 0) => {
+    const g = prop(name).frames[f % prop(name).frames.length];
+    put(name, Math.floor((12 - g[0].length) / 2), Math.floor((12 - g.length) / 2), f);
+  };
+  if (action === 'nourrir') {
+    put('main', 2, 0, 0);
+    [[4, 8], [6, 9], [5, 11], [7, 11], [3, 10]].forEach(([x, y]) => put('miette', x, y));
+  } else if (action === 'pip') center('doigt');
+  else if (action === 'calin') center(D.props.coeur_grand ? 'coeur_grand' : 'coeur');
+  else if (action === 'bisou') center('bouche');
+  return c;
+}

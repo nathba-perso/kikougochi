@@ -2,6 +2,7 @@ import { Kikou, hourOf, type Visible, type KikouSave } from './engine/kikou';
 import type { Action } from './engine/params';
 import { Scene, W, H, type Clip } from './render/scene';
 import { Sheets } from './render/sheets';
+import { actionIcon } from './render/sprites';
 import { actionClip, reactionClip, introClip, evolveClip, goneClip } from './render/clips';
 import { loadSave, writeSave, clearSave, askPersist, exportCode, importCode } from './storage';
 import { unlockAudio, kissSound, jingle } from './audio';
@@ -182,8 +183,10 @@ function setupInstall() {
 }
 
 function bindUI() {
-  document.querySelectorAll<HTMLButtonElement>('#actions button').forEach((b) =>
-    b.addEventListener('click', () => doAction(b.dataset.action as Action)));
+  document.querySelectorAll<HTMLButtonElement>('#actions button').forEach((b) => {
+    b.querySelector('.ico')?.replaceWith(actionIcon(b.dataset.action!));
+    b.addEventListener('click', () => doAction(b.dataset.action as Action));
+  });
   $('#menu-btn').onclick = () => openOverlay('menu');
   document.querySelectorAll<HTMLElement>('[data-open]').forEach((b) => (b.onclick = () => openOverlay(b.dataset.open!)));
   document.querySelectorAll<HTMLElement>('[data-close]').forEach((b) => (b.onclick = () => { b.closest<HTMLElement>('.overlay')!.hidden = true; }));

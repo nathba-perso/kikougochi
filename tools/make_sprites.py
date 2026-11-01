@@ -131,7 +131,8 @@ try:
         used = {c for f in fr for r in f for c in r if c != "."}
         return {"fps": fps, "frames": fr, "pal": {c: VPAL[c] for c in used if c in VPAL}}
     PROPS.update({"main": va("main_ouverte", "main_pince"), "miette": va("grain"),
-                  "doigt": va("doigt"), "bouche": va("bouche_1", "bouche_2", fps=4)})
+                  "doigt": va("doigt"), "bouche": va("bouche_1", "bouche_2", fps=4),
+                  "coeur_grand": va("coeur_3")})
 except (ImportError, KeyError) as e:
     print("accessoires du fil visuels non trouvés :", e)
 for i, g in enumerate(STAGES):

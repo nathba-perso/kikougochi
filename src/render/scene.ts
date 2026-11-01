@@ -64,13 +64,15 @@ export class Scene {
     this.rect(0, FLOOR - 4, W, 1, night ? '#2a2638' : '#c08a52');      // plinthe
     this.rect(0, FLOOR - 3, W, H, night ? '#4a3a33' : '#c9a57a');     // sol
     for (let x = 0; x < W; x += 8) this.rect(x + ((x / 8) % 2) * 3, FLOOR, 1, H, night ? '#3e3029' : '#b8946a');
-    // fenêtre
-    const sky = night ? '#141a3a' : dusk ? '#f2a65a' : '#8fd0f5';
-    this.rect(32, 3, 13, 10, '#7a5233');
-    this.rect(33, 4, 11, 8, sky);
-    this.rect(38, 4, 1, 8, '#7a5233'); this.rect(33, 7, 11, 1, '#7a5233');
-    if (night) { this.rect(41, 5, 2, 2, '#f4f1d0'); this.px(34, 5, '#f4f1d0'); this.px(36, 10, '#c8c8f0'); }
-    else this.rect(34, 5, 2, 2, dusk ? '#ffdf7a' : '#fff3a0');
+    // fenêtre : grande mais discrète (tons clairs, proches du mur)
+    const sky = night ? '#2c3159' : dusk ? '#f6cfa6' : '#d4ecf7';
+    const frame = night ? '#4a4466' : '#e2c79f';
+    this.rect(24, 2, 21, 17, frame);
+    this.rect(25, 3, 19, 15, sky);
+    this.rect(34, 3, 1, 15, frame); this.rect(25, 10, 19, 1, frame);
+    this.rect(23, 19, 23, 1, frame); // rebord
+    if (night) { this.rect(39, 5, 2, 2, '#e6e3c8'); this.px(28, 6, '#d6d4c0'); this.px(30, 14, '#b9b9dc'); this.px(41, 15, '#b9b9dc'); }
+    else { this.rect(27, 5, 3, 3, dusk ? '#fbe2b8' : '#fbf6d8'); this.rect(37, 13, 4, 1, '#eef7fb'); this.rect(36, 14, 6, 1, '#eef7fb'); }
     // coussin
     this.rect(10, FLOOR + 1, 28, 2, night ? '#5a3c4a' : '#d98b8b');
   }

@@ -9,7 +9,7 @@ const H = 3_600_000;
 
 export type Reaction =
   | 'mange' | 'refuse' | 'content' | 'sendort' | 'fete'
-  | 'pascontent' | 'reveille' | 'dortsourit';
+  | 'pascontent' | 'reveille' | 'dortsourit' | 'apaise';
 export type Visible = 'dort' | 'colere' | 'faim' | 'grognon' | 'teuf' | 'content' | 'calme';
 export type GoneCause = 'faim' | 'colere' | 'rancune';
 
@@ -44,6 +44,17 @@ function inWindow(h: number, [a, b]: [number, number]) {
   return a < b ? a <= h && h < b : h >= a || h < b;
 }
 const clamp = (x: number) => Math.max(0, Math.min(100, x));
+
+/**
+ * Rend la suite de réactions lisible : pas de réaction positive après « pas content »,
+ * pas de doublon, et au plus deux réactions (les effets sur les variables ne changent pas).
+ */
+function tidy(r: Reaction[]): Reaction[] {
+  let out = r.filter((x, i) => r.indexOf(x) === i);
+  if (out.includes('pascontent') || out.includes('reveille')) out = out.filter((x) => x !== 'content' && x !== 'fete');
+  if (out.includes('reveille')) out = out.filter((x) => x !== 'pascontent');
+  return out.slice(0, 2);
+}
 
 export class Kikou {
   s: KikouSave;
@@ -174,14 +185,15 @@ export class Kikou {
       else if (s.B > 85 && this.rng.random() < 0.25) r.push('fete');
       else r.push('content');
     } else if (action === 'calin') {
-      s.B += 10 * f; s.A -= 10; r.push('content');
+      const wasAngry = s.A > 60;
+      s.B += 10 * f; s.A -= 10; r.push(wasAngry ? 'apaise' : 'content');
       if (s.E < 35 && this.sleepWindow(now)) r.push('sendort');
     } else if (action === 'bisou') {
       if (s.A > 60) { s.A += 5; r.push('pascontent'); }
       else { s.B += 7 * f; s.A -= 4; r.push(s.B > 85 && this.rng.random() < 0.3 ? 'fete' : 'content'); }
     }
     this.clampAll();
-    return r;
+    return tidy(r);
   }
 
   visible(): Visible {

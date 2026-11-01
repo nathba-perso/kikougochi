@@ -211,8 +211,8 @@
     ]
    ],
    "pal": {
-    "P": "#ff5fa2",
-    "R": "#d62828"
+    "R": "#d62828",
+    "P": "#ff5fa2"
    }
   },
   "coeur": {
@@ -329,6 +329,22 @@
      "CCCCCCCCCCCCCC.."
     ]
    ]
+  },
+  "coeur_grand": {
+   "fps": 6,
+   "frames": [
+    [
+     ".HH.HH.",
+     "HHHHHHH",
+     "HHHHHHH",
+     ".HHHHH.",
+     "..HHH..",
+     "...H..."
+    ]
+   ],
+   "pal": {
+    "H": "#ff4d6d"
+   }
   }
  }
 }
