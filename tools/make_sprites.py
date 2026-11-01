@@ -133,6 +133,18 @@ try:
     PROPS.update({"main": va("main_ouverte", "main_pince"), "miette": va("grain"),
                   "doigt": va("doigt"), "bouche": va("bouche_1", "bouche_2", fps=4),
                   "coeur_grand": va("coeur_3")})
+    # Main du pip : une vraie main qui pointe (index tendu, poing, manche), pour éviter toute ambiguïté
+    PROPS["doigt"] = {"fps": 1, "frames": [[
+        ".......qqqq...",
+        "......qhhhhqBB",
+        "..qqqqqhqhhqbB",
+        ".qnhhhhhqhhqbB",
+        "..qqqqqqhhhqbB",
+        "......qhhhhqbB",
+        "......qqqhhqbB",
+        "......qhhhhqbB",
+        ".......qqqq.BB",
+    ]], "pal": {"q": VPAL["q"], "h": VPAL["h"], "n": "#f7e3d0", "b": "#5a8fd0", "B": "#2f5a94"}}
 except (ImportError, KeyError) as e:
     print("accessoires du fil visuels non trouvés :", e)
 for i, g in enumerate(STAGES):

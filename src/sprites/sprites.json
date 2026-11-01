@@ -155,19 +155,26 @@
    }
   },
   "doigt": {
-   "fps": 6,
+   "fps": 1,
    "frames": [
     [
-     "....qqqq",
-     ".qqqhhhh",
-     "qhhhhhhh",
-     ".qqqhhhh",
-     "....qqqq"
+     ".......qqqq...",
+     "......qhhhhqBB",
+     "..qqqqqhqhhqbB",
+     ".qnhhhhhqhhqbB",
+     "..qqqqqqhhhqbB",
+     "......qhhhhqbB",
+     "......qqqhhqbB",
+     "......qhhhhqbB",
+     ".......qqqq.BB"
     ]
    ],
    "pal": {
     "q": "#a86b4a",
-    "h": "#f2c9a0"
+    "h": "#f2c9a0",
+    "n": "#f7e3d0",
+    "b": "#5a8fd0",
+    "B": "#2f5a94"
    }
   },
   "bol": {

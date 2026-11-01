@@ -1,13 +1,79 @@
 {
  "photos": [
-  "reve-01.png",
-  "reve-02.png",
-  "reve-03.png",
-  "reve-04.png",
-  "reve-05.png",
-  "reve-06.png",
-  "reve-07.png",
-  "reve-08.png"
+  "photo-01.jpg",
+  "photo-02.jpg",
+  "photo-03.jpg",
+  "photo-04.jpg",
+  "photo-05.jpg",
+  "photo-06.jpg",
+  "photo-07.jpg",
+  "photo-08.jpg",
+  "photo-09.jpg",
+  "photo-10.jpg",
+  "photo-11.jpg",
+  "photo-12.jpg"
  ],
- "note": "Remplacer par de vraies photos de bébés guépards : déposer les fichiers dans ce dossier et lister leurs noms ici."
+ "credits": {
+  "photo-01.jpg": {
+   "auteur": "zoofanatic",
+   "licence": "CC BY 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:-4620-_Cheetah_cub_(20360171100).jpg"
+  },
+  "photo-02.jpg": {
+   "auteur": "Bernard DUPONT from FRANCE",
+   "licence": "CC BY-SA 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Cheetah_(Acinonyx_jubatus)_cub_..._(50934428403).jpg"
+  },
+  "photo-03.jpg": {
+   "auteur": "Bernard DUPONT from FRANCE",
+   "licence": "CC BY-SA 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Cheetah_(Acinonyx_jubatus)_cub_..._(50935116831).jpg"
+  },
+  "photo-04.jpg": {
+   "auteur": "Bernard DUPONT from FRANCE",
+   "licence": "CC BY-SA 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Cheetah_(Acinonyx_jubatus)_cub_..._(50937474013).jpg"
+  },
+  "photo-05.jpg": {
+   "auteur": "Bernard DUPONT from FRANCE",
+   "licence": "CC BY-SA 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Cheetah_(Acinonyx_jubatus)_cub_..._(52115953932).jpg"
+  },
+  "photo-06.jpg": {
+   "auteur": "Bernard DUPONT from FRANCE",
+   "licence": "CC BY-SA 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Cheetah_Cub_(Acinonyx_jubatus)_(6491755387).jpg"
+  },
+  "photo-07.jpg": {
+   "auteur": "Bernard DUPONT from FRANCE",
+   "licence": "CC BY-SA 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Cheetah_Cub_(Acinonyx_jubatus)_(6491833929).jpg"
+  },
+  "photo-08.jpg": {
+   "auteur": "Eric Kilby",
+   "licence": "CC BY-SA 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Cheetah_Cub_Yawning_Next_to_Mom.jpg"
+  },
+  "photo-09.jpg": {
+   "auteur": "Mathias Appel",
+   "licence": "CC0",
+   "source": "https://commons.wikimedia.org/wiki/File:Cheetah_cub_(22389343016).jpg"
+  },
+  "photo-10.jpg": {
+   "auteur": "Eric MacDonell ericmac5",
+   "licence": "CC0",
+   "source": "https://commons.wikimedia.org/wiki/File:Cheetah_cub_in_a_tree_(Unsplash).jpg"
+  },
+  "photo-11.jpg": {
+   "auteur": "Steve Wilson - over 6 million views Thanks !! from Chester, UK",
+   "licence": "CC BY 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Northern_Cheetah_Cub_(10803434766).jpg"
+  },
+  "photo-12.jpg": {
+   "auteur": "zoofanatic",
+   "licence": "CC BY 2.0",
+   "source": "https://commons.wikimedia.org/wiki/File:-4637-_Cheetah_cubs_being_suckled_(20554659801).jpg"
+  }
+ },
+ "note": "Photos libres de Wikimedia Commons (licences CC0 / CC BY / CC BY-SA). Les crédits s'affichent dans le jeu."
 }

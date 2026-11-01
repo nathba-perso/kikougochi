@@ -20,6 +20,7 @@ const sheets = new Sheets();
 const scene = new Scene($<HTMLCanvasElement>('#scene'), sheets);
 let k: Kikou;
 let photos: string[] = [];
+let credits: Record<string, { auteur: string; licence: string; source: string }> = {};
 const queue: Clip[] = [];
 let clip: Clip | null = null, clipStart = 0;
 let animState: Visible | null = null, animStart = 0;
@@ -99,6 +100,7 @@ function maybeDream() {
   if (!p) return;
   ($<HTMLImageElement>('#dream-img')).src = photoUrl(p);
   $('#dream-text').textContent = `Ce rêve rejoint ton album (${k.s.album.length} sur ${photos.length}).`;
+  $('#dream-credit').textContent = creditText(p);
   $('#dream').hidden = false;
   jingle([784, 988, 1175]);
 }
@@ -150,6 +152,11 @@ function openOverlay(id: string) {
   $('#' + id).hidden = false;
 }
 
+function creditText(p: string) {
+  const c = credits[p];
+  return c ? `Photo : ${c.auteur || 'auteur inconnu'}, ${c.licence}, Wikimedia Commons` : '';
+}
+
 function renderAlbum() {
   const g = $('#album-grid'); g.innerHTML = '';
   for (const p of photos) {
@@ -159,6 +166,12 @@ function renderAlbum() {
     g.append(d);
   }
   $('#album-count').textContent = `${k.s.album.length} rêve(s) sur ${photos.length}`;
+  const cr = $('#album-credits'); cr.innerHTML = '';
+  for (const p of photos.filter((x) => k.s.album.includes(x) && credits[x])) {
+    const a = document.createElement('a');
+    a.href = credits[p].source; a.target = '_blank'; a.rel = 'noopener'; a.textContent = creditText(p);
+    cr.append(a);
+  }
 }
 
 function setupInstall() {
@@ -251,6 +264,7 @@ async function boot() {
     sheets.load(base),
   ]);
   photos = ph.photos as string[];
+  credits = ph.credits ?? {};
   if (saved) {
     k = new Kikou(saved as KikouSave);
     if (!saved.wokenUntil) k.s.wokenUntil = -1;
