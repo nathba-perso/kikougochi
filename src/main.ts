@@ -4,8 +4,9 @@ import { Scene, W, H, type Clip } from './render/scene';
 import { Sheets } from './render/sheets';
 import { actionIcon } from './render/sprites';
 import { actionClip, reactionClip, introClip, evolveClip, goneClip } from './render/clips';
+import { P } from './engine/params';
 import { loadSave, writeSave, clearSave, askPersist, exportCode, importCode } from './storage';
-import { unlockAudio, kissSound, jingle } from './audio';
+import { unlockAudio, kissSound, jingle, proutSound } from './audio';
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
 
@@ -31,6 +32,15 @@ const STATE_TEXT: Record<Visible, string> = {
   colere: 'Kikou est en colère', content: 'Kikou est content', teuf: 'Kikou fait la teuf',
 };
 
+/** Texte sous la scène : l'état visible, précisé par l'excitation et la propreté. */
+function captionFor(vis: Visible) {
+  if (k.over) return '';
+  const calmish = vis === 'calme' || vis === 'content' || vis === 'teuf';
+  if (calmish && k.s.X >= P.X_over) return 'Kikou est tout excité';
+  if (calmish && k.s.poops > 0) return k.s.poops > 1 ? 'Ça sent pas bon par ici…' : 'Kikou a fait caca';
+  return STATE_TEXT[vis];
+}
+
 function save() { return writeSave(k.toJSON()); }
 const photoUrl = (name: string) => import.meta.env.BASE_URL + 'reves/' + name;
 const busy = () => clip !== null || queue.length > 0;
@@ -49,9 +59,9 @@ function frame() {
   const vis = k.visible();
   if (vis !== animState) { animState = vis; animStart = now; }
   const mode = k.s.gone ? (clip ? 'jeu' : 'parti') : k.s.won ? 'gagne' : 'jeu';
-  scene.render(now, { stage: k.stage(), anim: k.s.won ? 'teuf' : vis, hour: hourOf(clock()), mode },
+  scene.render(now, { stage: k.stage(), anim: k.s.won ? 'teuf' : vis, hour: hourOf(clock()), mode, poops: k.s.poops },
     clip, now - clipStart, now - animStart);
-  const cap = clip?.caption ?? (k.over ? '' : STATE_TEXT[vis]);
+  const cap = clip?.caption ?? captionFor(vis);
   const capEl = $('#caption');
   if (capEl.textContent !== cap) capEl.textContent = cap || ' ';
   const dis = busy() || k.over;
@@ -69,7 +79,9 @@ function onClipsDone() {
 /** Rattrape le temps écoulé et met en file ce qu'il faut montrer (évolution, départ, victoire). */
 function sync() {
   if (k.over) { if (!busy()) showEnd(); return; }
+  const poopsBefore = k.s.poops;
   k.catchUp(clock());
+  if (k.s.poops > poopsBefore && !k.s.gone) queue.push({ ...reactionClip('caca'), onStart: proutSound });
   const st = k.stage();
   if (st > k.s.shownStage) {
     const from = k.s.shownStage;
@@ -86,9 +98,9 @@ function doAction(a: Action) {
   unlockAudio();
   k.catchUp(clock());
   if (k.over) return sync();
-  const idle = k.visible();
+  const idle = k.visible(), poops = k.s.poops;
   const reactions = k.act(a, clock());
-  queue.push(actionClip(a, idle, k.stage(), a === 'bisou' ? kissSound : undefined));
+  queue.push(actionClip(a, idle, k.stage(), a === 'bisou' ? kissSound : undefined, poops));
   for (const r of reactions) queue.push(reactionClip(r));
   save();
 }
@@ -244,7 +256,7 @@ function debugPanel() {
   }
   const now = performance.now(); if (now - dbgLast < 250) return; dbgLast = now;
   const s = k.s, f = (x: number) => x.toFixed(0);
-  const info = `${new Date(clock()).toLocaleString('fr-FR')}<br>S ${f(s.S)} E ${f(s.E)} B ${f(s.B)} A ${f(s.A)} R ${s.R.toFixed(1)} G ${f(s.G)} stade ${k.stage()} ${s.asleep ? 'dort' : ''}`;
+  const info = `${new Date(clock()).toLocaleString('fr-FR')}<br>S ${f(s.S)} E ${f(s.E)} B ${f(s.B)} A ${f(s.A)} R ${s.R.toFixed(1)} X ${f(s.X)} G ${f(s.G)} caca ${s.poops}+${s.poopAt.length} stade ${k.stage()} ${s.asleep ? 'dort' : ''}`;
   let p = el.querySelector('p');
   if (!p) {
     el.innerHTML = '<p style="margin:0 0 4px"></p>' + [[1, '+1h'], [6, '+6h'], [24, '+1j'], [120, '+5j'], [0, 'heure réelle']]
@@ -266,7 +278,7 @@ async function boot() {
   photos = ph.photos as string[];
   credits = ph.credits ?? {};
   if (saved) {
-    k = new Kikou(saved as KikouSave);
+    k = new Kikou(saved as KikouSave); // déjà mise à niveau par loadSave
     if (!saved.wokenUntil) k.s.wokenUntil = -1;
     sync();
   } else {

@@ -36,3 +36,13 @@ export function blip(freq = 660, dur = 0.08, vol = 0.12) {
 export function jingle(notes: number[], step = 0.12) {
   notes.forEach((f, i) => setTimeout(() => blip(f, step * 0.9, 0.1), i * step * 1000));
 }
+
+/** Petit « prout » : grave qui descend en tremblant. */
+export function proutSound() {
+  const a = ctx(); if (!a) return;
+  const t = a.currentTime, o = a.createOscillator(), g = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.35);
+  lfo.frequency.value = 28; lg.gain.value = 25; lfo.connect(lg).connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+  o.connect(g).connect(a.destination); o.start(t); lfo.start(t); o.stop(t + 0.42); lfo.stop(t + 0.42);
+}

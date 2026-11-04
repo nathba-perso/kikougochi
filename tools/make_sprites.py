@@ -13,7 +13,7 @@ Format (à respecter pour brancher les vrais sprites) :
 Toute animation absente d'un stade est remplacée en jeu par une animation
 procédurale construite à partir de "base" (rebond, clignement, secousse...).
 Noms reconnus pour le kikou : base, dort, calme, faim, grognon, colere, content, teuf,
-mange, refuse, sendort, fete, pascontent, reveille, dortsourit.
+mange, refuse, sendort, fete, pascontent, reveille, dortsourit, propre, rien, surexcite, caca.
 Les sprites du kikou regardent vers la gauche ; leur bas repose sur le sol.
 """
 import json, os
@@ -109,6 +109,25 @@ PROPS = {
     "CccccccccccccCC.",
     "CCCCCCCCCCCCCC..",
   ]),
+  # caca (posé par terre) et balai pour nettoyer
+  "caca": {"fps": 1, "frames": [[
+    "..d...",
+    ".dCd..",
+    ".dddd.",
+    "dCCCCd",
+    "dddddd",
+  ]], "pal": {"d": "#5b3a1e", "C": "#8c6239"}},
+  "balai": {"fps": 1, "frames": [[
+    "......H",
+    ".....H.",
+    "....H..",
+    "...H...",
+    "..H....",
+    ".rr....",
+    "yyyy...",
+    "yYyYy..",
+    "y.y.y..",
+  ]], "pal": {"H": "#9a6a4a", "r": "#e0443e", "y": "#f5d742", "Y": "#c9a227"}},
 }
 
 import sys
