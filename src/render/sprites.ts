@@ -62,7 +62,7 @@ export function kikouPose(stage: number, anim: string, t: number): Pose {
       return { grid: closeEyes(g), dx: 0, dy: 0, flip: Math.floor(s * 4) % 2 === 1 };
     case 'content':
       return { grid: blink(1800) ? closeEyes(g) : g, dx: 0, dy: Math.floor(s * 2) % 2 === 0 ? 0 : -1, flip: false };
-    case 'teuf': case 'fete': {
+    case 'teuf': case 'fete': case 'surexcite': {
       const ph = (s * 2.2) % 1;
       return { grid: g, dx: 0, dy: -Math.round(Math.sin(ph * Math.PI) * 4), flip: Math.floor(s * 2.2) % 2 === 1 };
     }
@@ -99,5 +99,6 @@ export function actionIcon(action: string): HTMLCanvasElement {
   } else if (action === 'pip') center('doigt');
   else if (action === 'calin') center(D.props.coeur_grand ? 'coeur_grand' : 'coeur');
   else if (action === 'bisou') center('bouche');
+  else if (action === 'nettoyer') center('balai');
   return c;
 }

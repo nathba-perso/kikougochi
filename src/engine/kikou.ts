@@ -9,12 +9,15 @@ const H = 3_600_000;
 
 export type Reaction =
   | 'mange' | 'refuse' | 'content' | 'sendort' | 'fete'
-  | 'pascontent' | 'reveille' | 'dortsourit' | 'apaise';
+  | 'pascontent' | 'reveille' | 'dortsourit' | 'apaise'
+  | 'propre' | 'rien' | 'surexcite' | 'caca';
 export type Visible = 'dort' | 'colere' | 'faim' | 'grognon' | 'teuf' | 'content' | 'calme';
 export type GoneCause = 'faim' | 'colere' | 'rancune';
 
+export const SAVE_VERSION = 2;
+
 export interface KikouSave {
-  v: 1;
+  v: 2;
   seed: number;
   rng: number;
   born: number;        // ms
@@ -30,6 +33,21 @@ export interface KikouSave {
   shownStage: number;  // dernier stade montré au joueur (pour l'animation d'évolution)
   dreamDay: number;    // dernier jour où le rêve a été tiré
   album: string[];     // photos de rêve déjà vues
+  // v2
+  X: number;           // excitation (0-100)
+  poops: number;       // cacas par terre
+  poopAt: number[];    // ms : cacas en cours de digestion
+}
+
+/**
+ * Met à niveau une sauvegarde d'une version précédente : le kikou garde son stade, sa croissance
+ * et tout son état ; les nouveautés démarrent à leur valeur de repos. Renvoie null si illisible.
+ */
+export function migrate(raw: any): KikouSave | null {
+  if (!raw || typeof raw !== 'object' || typeof raw.G !== 'number') return null;
+  if (raw.v === 1) raw = { ...raw, v: 2, X: P.X_rest, poops: 0, poopAt: [] };
+  if (raw.v !== SAVE_VERSION) return null;
+  return raw as KikouSave;
 }
 
 export function dayKey(ms: number) {
@@ -61,18 +79,21 @@ export class Kikou {
   rng: Rng;
 
   constructor(save: KikouSave) {
-    this.s = save;
+    const m = migrate(save);
+    if (!m) throw new Error('sauvegarde illisible');
+    this.s = m;
     this.rng = new Rng(save.rng);
   }
 
   static create(now: number, seed = (Math.random() * 2 ** 32) >>> 0): Kikou {
     const t = Math.floor(now / STEP_MS) * STEP_MS;
     return new Kikou({
-      v: 1, seed, rng: seed, born: now, t,
+      v: 2, seed, rng: seed, born: now, t,
       S: 80, E: 80, B: 50, A: 0, G: 0, R: 0,
       asleep: false, wokenUntil: -Infinity,
       hist: [], sZero: 0, aMax: 0, day: -1, noise: 1, jit: 0,
       gone: null, won: null, shownStage: 0, dreamDay: -1, album: [],
+      X: P.X_rest, poops: 0, poopAt: [],
     });
   }
 
@@ -110,23 +131,33 @@ export class Kikou {
       s.jit = this.rng.uniform(-P.jitter_min, P.jitter_min) / 60;
     }
     const win = this.sleepWindow(ms);
-    const want = win && ms >= s.wokenUntil;
+    const want = win && ms >= s.wokenUntil && s.X < P.X_nosleep; // trop excité : il ne s'endort pas
     s.asleep = want || s.E < P.E_collapse || (s.asleep && s.E < 30 && win);
     if (s.asleep) {
       s.S -= P.S_decay_sleep * s.noise * DT;
       s.E += P.E_gain_sleep * DT;
       s.A -= P.A_decay_sleep * DT;
+      s.X -= P.X_decay_sleep * DT;
     } else {
       s.S -= P.S_decay_awake * s.noise * DT;
       s.E -= P.E_decay_awake * DT;
       s.A -= P.A_decay_awake * DT;
+      s.X += ((P.X_rest - s.X) / P.X_tau) * DT;
+      if (s.X >= P.X_over) s.A += P.A_over * DT;
+      // caca : seulement réveillé, quand la digestion est finie
+      if (s.poopAt.length && ms >= s.poopAt[0]) {
+        s.poopAt.shift();
+        s.poops = Math.min(P.poop_max, s.poops + 1);
+      }
     }
+    if (s.poops > 0) s.A += P.A_poop * s.poops * DT;
     if (s.S < 20) s.A += P.A_hungry * DT;
     if (s.E < 20) s.A += P.A_tired * DT;
     let dB = -(s.B - P.B_rest) / P.B_tau;
     if (s.S < 25) dB -= P.B_pen_hungry;
     if (s.E < 25) dB -= P.B_pen_tired;
     if (s.A > 60) dB -= P.B_pen_angry;
+    dB -= P.B_pen_poop * s.poops;
     s.B += dB * DT;
     this.clampAll();
     // croissance
@@ -147,7 +178,7 @@ export class Kikou {
 
   private clampAll() {
     const s = this.s;
-    s.S = clamp(s.S); s.E = clamp(s.E); s.B = clamp(s.B); s.A = clamp(s.A);
+    s.S = clamp(s.S); s.E = clamp(s.E); s.B = clamp(s.B); s.A = clamp(s.A); s.X = clamp(s.X);
   }
 
   private recent(action: Action, hours: number, now: number) {
@@ -157,6 +188,13 @@ export class Kikou {
   /** Applique une action du joueur à l'instant `now` et renvoie la suite de réactions. */
   act(action: Action, now: number): Reaction[] {
     const s = this.s, r: Reaction[] = [];
+    if (action === 'nettoyer') {
+      // nettoyer ne réveille pas et ne compte pas comme une sollicitation
+      if (s.poops === 0) return ['rien'];
+      s.B += P.B_clean + 2 * (s.poops - 1); s.poops = 0;
+      this.clampAll();
+      return ['propre'];
+    }
     const n2h = this.recent(action, 2, now);
     const n10 = this.recent(action, 10 / 60, now);
     const f = 1 / (1 + n2h);
@@ -175,22 +213,36 @@ export class Kikou {
         s.A += P.A_refuse; r.push('refuse');
       } else {
         s.S += s.S < P.S_snack_limit ? P.S_meal : P.S_snack; s.B += 3; r.push('mange');
+        s.poopAt.push(now + this.rng.uniform(P.poop_delay_min, P.poop_delay_max) * H);
+        s.poopAt.sort((a, b) => a - b);
         const h = hourOf(now);
         if (MEAL_WINDOWS.some((w) => inWindow(h, w))) { s.B += 5; r.push('content'); }
         s.A -= 5;
       }
     } else if (action === 'pip') {
-      s.B += 5 * f;
+      // jouer : gros bonheur, mais ça excite et ça fatigue un peu
+      s.X += P.X_pip; s.E -= P.E_pip;
       if (s.A > 60) { s.A += 5; r.push('pascontent'); }
-      else if (s.B > 85 && this.rng.random() < 0.25) r.push('fete');
-      else r.push('content');
+      else if (s.X >= P.X_over) { s.B += 3 * f; r.push('surexcite'); }
+      else {
+        s.B += 8 * f;
+        r.push(s.B > 85 && this.rng.random() < 0.35 ? 'fete' : 'content');
+      }
     } else if (action === 'calin') {
+      // calmer : apaise la colère et l'excitation, aide à s'endormir
       const wasAngry = s.A > 60;
-      s.B += 10 * f; s.A -= 10; r.push(wasAngry ? 'apaise' : 'content');
-      if (s.E < 35 && this.sleepWindow(now)) r.push('sendort');
+      s.B += 8 * f; s.A -= 12; s.X += P.X_calin; r.push(wasAngry ? 'apaise' : 'content');
+      this.clampAll();
+      if (s.E < 45 && s.X < P.X_nosleep && this.sleepWindow(now)) {
+        s.asleep = true; s.wokenUntil = now; r.push('sendort');
+      }
     } else if (action === 'bisou') {
+      // aimer : bonheur, et il pardonne un peu (la rancune baisse)
       if (s.A > 60) { s.A += 5; r.push('pascontent'); }
-      else { s.B += 7 * f; s.A -= 4; r.push(s.B > 85 && this.rng.random() < 0.3 ? 'fete' : 'content'); }
+      else {
+        s.B += 7 * f; s.A -= 4; s.X += P.X_bisou; s.R = Math.max(0, s.R - P.R_bisou * f);
+        r.push(s.B > 85 && this.rng.random() < 0.3 ? 'fete' : 'content');
+      }
     }
     this.clampAll();
     return tidy(r);

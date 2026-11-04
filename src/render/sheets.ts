@@ -8,6 +8,7 @@ interface Manifest { tickMs: number; stages: Record<string, StageSheet> }
 const FALLBACK: Record<string, string> = {
   'r:content': 'content', 'r:fete': 'teuf', 'r:pascontent': 'grognon', 'r:sendort': 'dort',
   'r:dortsourit': 'dort', 'r:refuse': 'grognon', 'r:apaise': 'grognon', 'r:reveille': 'colere', 'r:mange': 'calme',
+  'r:propre': 'content', 'r:rien': 'calme', 'r:surexcite': 'teuf', 'r:caca': 'calme',
 };
 
 export class Sheets {

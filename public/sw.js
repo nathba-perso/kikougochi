@@ -1,7 +1,7 @@
 // Service worker : le jeu marche hors ligne après la première ouverture.
 // Pages : réseau d'abord (pour recevoir les mises à jour), cache en secours.
 // Autres fichiers : cache d'abord, mis à jour en arrière-plan.
-const CACHE = 'kikougochi-v1';
+const CACHE = 'kikougochi-v2';
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './manifest.webmanifest', './sprites/manifest.json', './reves/reves.json'])).then(() => self.skipWaiting()));
 });

@@ -24,6 +24,19 @@ export interface View {
   anim: string;      // état visible courant
   hour: number;
   mode: 'jeu' | 'parti' | 'gagne' | 'vide';
+  poops?: number;    // cacas par terre
+}
+
+/** Emplacements des cacas sur le sol (à droite du kikou, le bol est à gauche). */
+export const POOP_X = [39, 43, 34];
+export function drawPoop(sc: Scene, i: number, t: number) {
+  const x = POOP_X[i], y = FLOOR - 4;
+  sc.prop('caca', x, y);
+  // petites odeurs qui ondulent
+  for (let j = 0; j < 2; j++) {
+    const p = ((t / 1400) + j * 0.5 + i * 0.3) % 1;
+    sc.px(x + 1 + j * 3 + Math.round(Math.sin(p * 6 + i)), y - 1 - p * 5, 'rgba(120,170,80,0.8)');
+  }
 }
 
 // petit hasard déterministe pour les particules
@@ -92,6 +105,7 @@ export class Scene {
       return;
     }
     if (view.mode === 'vide') return;
+    for (let i = 0; i < Math.min(view.poops ?? 0, POOP_X.length); i++) drawPoop(this, i, now);
     const stage = clip?.stage ? clip.stage(clipT) : view.stage;
     const anim = clip ? clip.anim : view.anim;
     const t = clip ? clipT : animT;

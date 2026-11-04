@@ -2,15 +2,29 @@
 import type { Action } from '../engine/params';
 import type { Reaction } from '../engine/kikou';
 import { noseOf, prop } from './sprites';
-import { type Clip, type Scene, type Box, FLOOR, W, H, confetti, floatingZ, bubble, smallHeart, bigHeart } from './scene';
+import { type Clip, type Scene, type Box, FLOOR, W, H, POOP_X, drawPoop, confetti, floatingZ, bubble, smallHeart, bigHeart } from './scene';
 
 const lerp = (a: number, b: number, p: number) => a + (b - a) * Math.max(0, Math.min(1, p));
 
 /** Position du bol, devant le kikou (il regarde vers la gauche). */
 const bowlX = (k: Box) => Math.max(1, k.x - 8);
 
-export function actionClip(a: Action, idleAnim: string, stage: number, onKiss?: () => void): Clip {
+export function actionClip(a: Action, idleAnim: string, stage: number, onKiss?: () => void, poops = 0): Clip {
   switch (a) {
+    case 'nettoyer':
+      // le balai passe de droite à gauche sur le sol ; chaque caca disparaît à son passage
+      return {
+        dur: 1600, anim: idleAnim, caption: 'Tu nettoies',
+        under: (sc, t) => {
+          const bx = lerp(W + 1, 28, t / 1300);
+          for (let i = 0; i < Math.min(poops, POOP_X.length); i++) if (POOP_X[i] < bx - 2) drawPoop(sc, i, t);
+        },
+        over: (sc, t) => {
+          const bx = lerp(W + 1, 28, t / 1300) + (Math.floor(t / 90) % 2);
+          sc.prop('balai', bx, FLOOR - 9);
+          if (t < 1300) for (let i = 0; i < 3; i++) sc.px(bx + 5 + ((t / 60 + i * 3) % 6), FLOOR - 1 - (i % 2), 'rgba(200,180,140,0.9)');
+        },
+      };
     case 'nourrir':
       return {
         dur: 1900, anim: idleAnim === 'dort' ? 'dort' : 'faim', caption: 'Tu nourris le kikou',
@@ -64,6 +78,8 @@ const CAPTIONS: Record<Reaction, string> = {
   mange: 'Miam, miam !', refuse: 'Non merci, plus faim !', content: 'Il a adoré ça !',
   sendort: "Il s'endort dans tes bras…", fete: 'Youpiii !', pascontent: "Grrr, il n'a pas aimé !",
   reveille: "Oh ! Tu l'as réveillé…", dortsourit: 'Il sourit en dormant', apaise: 'Ça le calme un peu…',
+  propre: 'Tout propre !', rien: 'Rien à nettoyer', surexcite: 'Il est tout excité, il ne tient plus en place !',
+  caca: 'Oups ! Kikou a fait caca…',
 };
 
 export function reactionClip(r: Reaction): Clip {
@@ -83,10 +99,23 @@ export function reactionClip(r: Reaction): Clip {
     case 'fete': c.dur = 2000; c.over = (sc, t, k) => confetti(sc, t, 30); break;
     case 'pascontent': c.over = (sc, t, k) => sc.prop('nuage', k.x + k.w - 2, Math.max(0, k.y - 6), t); break;
     case 'reveille': c.dur = 1100; c.over = (sc, t, k) => sc.prop('exclam', k.x + k.w + 1, Math.max(0, k.y - 6)); break;
+    case 'propre': c.over = (sc, t, k) => { smallHeart(sc, t, k, 1500); sparkles(sc, t); }; break;
+    case 'rien': c.dur = 1100; break;
+    case 'surexcite': c.dur = 1800; c.over = (sc, t, k) => { if (t % 500 < 350) sc.prop('exclam', k.x + k.w + 1, Math.max(0, k.y - 6)); }; break;
+    case 'caca': c.dur = 1800; break;
     case 'sendort': c.dur = 1800; c.over = (sc, t, k) => floatingZ(sc, t, k); break;
     case 'dortsourit': c.dur = 1800; c.over = (sc, t, k) => { floatingZ(sc, t, k); smallHeart(sc, t, k, 1800); }; break;
   }
   return c;
+}
+
+/** Petites étincelles sur le sol propre. */
+function sparkles(sc: Scene, t: number) {
+  for (let i = 0; i < 4; i++) {
+    if ((t / 200 + i) % 3 > 1.5) continue;
+    const x = 32 + i * 4, y = FLOOR - 3 - (i % 2) * 2;
+    sc.px(x, y, '#ffffff'); sc.px(x - 1, y, '#fbf6d8'); sc.px(x + 1, y, '#fbf6d8'); sc.px(x, y - 1, '#fbf6d8'); sc.px(x, y + 1, '#fbf6d8');
+  }
 }
 
 /** Arrivée : le kikou sort du carton couché sur le côté et roule jusqu'au centre. */

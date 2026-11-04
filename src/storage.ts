@@ -1,6 +1,8 @@
 // Sauvegarde locale : IndexedDB (idb-keyval) avec copie dans localStorage en secours.
+// La clé ne change pas d'une version à l'autre : les anciennes sauvegardes sont mises à niveau
+// au chargement (voir migrate dans engine/kikou.ts), le kikou garde son stade.
 import { get, set, del } from 'idb-keyval';
-import type { KikouSave } from './engine/kikou';
+import { migrate, type KikouSave } from './engine/kikou';
 
 const KEY = 'kikougochi.v1';
 
@@ -8,6 +10,7 @@ export async function loadSave(): Promise<KikouSave | null> {
   let a: KikouSave | null = null, b: KikouSave | null = null;
   try { a = (await get(KEY)) ?? null; } catch { /* IndexedDB indisponible */ }
   try { const raw = localStorage.getItem(KEY); b = raw ? JSON.parse(raw) : null; } catch { /* */ }
+  a = migrate(a); b = migrate(b);
   if (a && b) return a.t >= b.t ? a : b; // la plus récente gagne
   return a ?? b;
 }
@@ -38,6 +41,6 @@ export function importCode(code: string): KikouSave | null {
     const c = code.trim().replace(/^KIKOU1:/, '');
     const bin = atob(c);
     const s = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0))));
-    return s && s.v === 1 && typeof s.G === 'number' ? s : null;
+    return migrate(s); // accepte aussi les codes des versions précédentes
   } catch { return null; }
 }
