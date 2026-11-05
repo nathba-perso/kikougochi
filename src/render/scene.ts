@@ -25,6 +25,7 @@ export interface View {
   hour: number;
   mode: 'jeu' | 'parti' | 'gagne' | 'vide';
   poops?: number;    // cacas par terre
+  visitor?: { stage: number; anim: string }; // kikou d'un ami en visite (carte postale)
 }
 
 /** Emplacements des cacas sur le sol (à droite du kikou, le bol est à gauche). */
@@ -96,6 +97,25 @@ export class Scene {
     return { x: Math.round(W / 2 - w / 2) + dx, y: FLOOR - h + dy, w, h };
   }
 
+  /** Kikou d'un ami, à gauche, tourné vers le nôtre (dessiné derrière lui). */
+  visitor(stage: number, anim: string, t: number) {
+    const sh = this.sheets.get(stage, anim) ?? this.sheets.get(stage, 'calme');
+    const bw = gw(baseGrid(stage));
+    const x = Math.max(-2, 11 - bw);
+    this.rect(x + 1, FLOOR, Math.max(2, bw - 2), 1, 'rgba(60,30,10,0.25)');
+    if (sh) {
+      const f = Sheets.frame(sh.a, t + 700);
+      const cx = x - sh.s.padX, cy = FLOOR + sh.s.padB - sh.s.cellH;
+      const ctx = this.ctx;
+      ctx.save(); ctx.translate(cx + sh.s.cellW, cy); ctx.scale(-1, 1);
+      ctx.drawImage(sh.img, f * sh.s.cellW, sh.a.row * sh.s.cellH, sh.s.cellW, sh.s.cellH, 0, 0, sh.s.cellW, sh.s.cellH);
+      ctx.restore();
+    } else {
+      const pose = kikouPose(stage, anim, t + 700);
+      this.grid(pose.grid, x, FLOOR - gh(pose.grid) + pose.dy, true);
+    }
+  }
+
   render(now: number, view: View, clip: Clip | null, clipT: number, animT: number) {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, W, H);
@@ -109,7 +129,8 @@ export class Scene {
     const stage = clip?.stage ? clip.stage(clipT) : view.stage;
     const anim = clip ? clip.anim : view.anim;
     const t = clip ? clipT : animT;
-    const [ox, oy] = clip?.offset ? clip.offset(clipT) : [0, 0];
+    let [ox, oy] = clip?.offset ? clip.offset(clipT) : [0, 0];
+    if (view.visitor) { this.visitor(view.visitor.stage, view.visitor.anim, animT); ox += 6; }
     const hidden = clip?.hideKikou?.(clipT) ?? false;
     // nom dans les planches : états tels quels, réactions préfixées par « r: »
     const STATES = ['dort', 'calme', 'faim', 'grognon', 'colere', 'content', 'teuf'];

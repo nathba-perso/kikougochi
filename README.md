@@ -48,6 +48,18 @@ L'excitation (X) est une variable cachée qui revient seule vers 20 quand il est
 Ajouter `?debug` à l'URL : affiche les variables cachées et permet d'avancer le temps (+1 h, +6 h, +1 j, +5 j).
 Le décalage est mémorisé dans le navigateur ; « heure réelle » le remet à zéro.
 
+## Cartes postales
+
+Menu › Cartes postales : le joueur choisit un pseudo, un décor et une phrase, et le jeu partage une image de
+la carte avec un lien `…#carte=<code>` (partage natif du téléphone, sinon lien copié). Il n'y a pas de serveur :
+toute la carte tient dans le lien (`src/social.ts`, dessin dans `src/render/postcard.ts`).
+
+En ouvrant le lien, la carte est rangée dans la boîte aux lettres et le kikou de l'ami vient en visite dans la
+scène pendant 24 h. C'est purement décoratif : aucune variable du kikou ne change. Sur iPhone, le lien s'ouvre
+dans Safari et non dans l'app installée : la carte propose alors « Copier la carte », à coller dans
+Menu › Cartes postales. Pseudo, cartes et visite sont stockés à part (`kikougochi.social`), hors de la sauvegarde
+du kikou : ils restent après une nouvelle partie.
+
 ## Sauvegarde
 
 L'état du kikou est stocké dans IndexedDB (copie dans localStorage). À chaque ouverture, le jeu rejoue

@@ -6,6 +6,11 @@ import { actionIcon } from './render/sprites';
 import { actionClip, reactionClip, introClip, evolveClip, goneClip } from './render/clips';
 import { P } from './engine/params';
 import { loadSave, writeSave, clearSave, askPersist, exportCode, importCode } from './storage';
+import {
+  loadSocial, writeSocial, decodeCard, newCard, cardLink, receive, activeVisit, kikouName, cleanPseudo,
+  DECORS, MESSAGES, type Social, type Card,
+} from './social';
+import { drawPostcard, postcardBlob } from './render/postcard';
 import { unlockAudio, kissSound, jingle, proutSound } from './audio';
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
@@ -26,6 +31,10 @@ const queue: Clip[] = [];
 let clip: Clip | null = null, clipStart = 0;
 let animState: Visible | null = null, animStart = 0;
 let endShown = false;
+let social: Social = { pseudo: '', cards: [], sent: [], visit: null };
+const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const STANDALONE = matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+const cap1 = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 const STATE_TEXT: Record<Visible, string> = {
   dort: 'Kikou dort', calme: 'Kikou est calme', faim: 'Kikou a faim', grognon: 'Kikou est grognon',
@@ -38,6 +47,8 @@ function captionFor(vis: Visible) {
   const calmish = vis === 'calme' || vis === 'content' || vis === 'teuf';
   if (calmish && k.s.X >= P.X_over) return 'Kikou est tout excité';
   if (calmish && k.s.poops > 0) return k.s.poops > 1 ? 'Ça sent pas bon par ici…' : 'Kikou a fait caca';
+  const v = activeVisit(social, clock());
+  if (v && vis !== 'dort' && Math.floor(Date.now() / 5000) % 2) return `${cap1(kikouName(v.from))} est en visite`;
   return STATE_TEXT[vis];
 }
 
@@ -59,7 +70,9 @@ function frame() {
   const vis = k.visible();
   if (vis !== animState) { animState = vis; animStart = now; }
   const mode = k.s.gone ? (clip ? 'jeu' : 'parti') : k.s.won ? 'gagne' : 'jeu';
-  scene.render(now, { stage: k.stage(), anim: k.s.won ? 'teuf' : vis, hour: hourOf(clock()), mode, poops: k.s.poops },
+  const v = activeVisit(social, clock());
+  const visitor = v && mode === 'jeu' ? { stage: v.st, anim: vis === 'dort' ? 'dort' : 'calme' } : undefined;
+  scene.render(now, { stage: k.stage(), anim: k.s.won ? 'teuf' : vis, hour: hourOf(clock()), mode, poops: k.s.poops, visitor },
     clip, now - clipStart, now - animStart);
   const cap = clip?.caption ?? captionFor(vis);
   const capEl = $('#caption');
@@ -160,6 +173,7 @@ function fitCanvas() {
 function openOverlay(id: string) {
   document.querySelectorAll<HTMLElement>('.overlay').forEach((o) => { if (o.id !== 'end' && o.id !== 'dream') o.hidden = true; });
   if (id === 'album') renderAlbum();
+  if (id === 'postbox') renderPostbox();
   if (id === 'backup') { ($<HTMLTextAreaElement>('#backup-code')).value = exportCode(k.toJSON()); $('#backup-msg').textContent = ''; }
   $('#' + id).hidden = false;
 }
@@ -186,10 +200,128 @@ function renderAlbum() {
   }
 }
 
+// ---------- cartes postales (décoratives : ne changent rien au kikou) ----------
+const saveSocial = () => writeSocial(social);
+
+function renderPostbox() {
+  const has = !!social.pseudo;
+  $('#pseudo-box').hidden = has;
+  $('#pseudo-line').hidden = !has;
+  if (has) $('#pseudo-line').innerHTML = `Tes cartes sont signées <b></b>. <a href="#" id="pseudo-edit">Changer</a>`;
+  if (has) {
+    $('#pseudo-line b').textContent = `« ${kikouName(social.pseudo)} »`;
+    $('#pseudo-edit').onclick = (e) => { e.preventDefault(); $('#pseudo-box').hidden = false; $('#pseudo-line').hidden = true; ($<HTMLInputElement>('#pseudo')).value = social.pseudo; };
+  }
+  $('#postbox-msg').textContent = '';
+  const g = $('#cards-grid'); g.innerHTML = '';
+  $('#cards-count').textContent = social.cards.length ? `Cartes reçues : ${social.cards.length}` : "Tu n'as pas encore reçu de carte.";
+  for (const c of social.cards) {
+    const cv = document.createElement('canvas');
+    drawPostcard(cv, sheets, c);
+    cv.onclick = () => showPostcard(c, 'album');
+    g.append(cv);
+  }
+}
+
+function readPseudo(): boolean {
+  const box = $('#pseudo-box');
+  if (!box.hidden) {
+    const p = cleanPseudo(($<HTMLInputElement>('#pseudo')).value);
+    if (!p) { $('#postbox-msg').textContent = "Écris d'abord ton prénom ou ton pseudo."; ($<HTMLInputElement>('#pseudo')).focus(); return false; }
+    social.pseudo = p; saveSocial();
+  }
+  return !!social.pseudo;
+}
+
+let draft = { d: 0, m: 0 };
+function draftCard(): Card { return newCard(social.pseudo, k.stage(), k.visible(), draft.d, draft.m, clock()); }
+function renderCompose() {
+  drawPostcard($<HTMLCanvasElement>('#compose-preview'), sheets, draftCard());
+  document.querySelectorAll<HTMLButtonElement>('#decor-choice button').forEach((b, i) => b.setAttribute('aria-pressed', String(i === draft.d)));
+}
+function openCompose() {
+  if (!readPseudo()) return;
+  const dc = $('#decor-choice');
+  if (!dc.childElementCount) {
+    DECORS.forEach((name, i) => {
+      const b = document.createElement('button'); b.textContent = name;
+      b.onclick = () => { draft.d = i; renderCompose(); };
+      dc.append(b);
+    });
+    const sel = $<HTMLSelectElement>('#message-choice');
+    MESSAGES.forEach((m, i) => sel.add(new Option(m, String(i))));
+    sel.onchange = () => { draft.m = Number(sel.value); renderCompose(); };
+  }
+  $('#compose-msg').textContent = '';
+  $('#postbox').hidden = true; $('#compose').hidden = false;
+  document.fonts?.ready.then(renderCompose); renderCompose();
+}
+
+async function sendCard() {
+  const msg = $('#compose-msg');
+  const c = draftCard();
+  const link = cardLink(c);
+  const text = `${cap1(kikouName(c.from))} t'envoie une carte postale ! Ouvre-la ici : ${link}`;
+  const done = (t: string) => {
+    msg.textContent = t;
+    social.sent = [c.id, ...social.sent].slice(0, 50); saveSocial();
+  };
+  try {
+    await document.fonts?.ready;
+    const blob = await postcardBlob(sheets, c);
+    const file = blob ? new File([blob], 'carte-kikou.png', { type: 'image/png' }) : null;
+    if (file && navigator.canShare?.({ files: [file], text })) {
+      await navigator.share({ files: [file], text }); return done('Carte envoyée !');
+    }
+    if (navigator.share) { await navigator.share({ text }); return done('Carte envoyée !'); }
+  } catch (e) {
+    if ((e as Error)?.name === 'AbortError') return; // partage annulé
+  }
+  try { await navigator.clipboard.writeText(text); done('Lien de la carte copié : colle-le dans un message.'); }
+  catch { msg.textContent = link; }
+}
+
+/** Affiche une carte. `link` : arrivée par un lien (ou un collage) ; `album` : relecture. */
+function showPostcard(c: Card, how: 'link' | 'paste' | 'album') {
+  drawPostcard($<HTMLCanvasElement>('#postcard-canvas'), sheets, c);
+  document.fonts?.ready.then(() => drawPostcard($<HTMLCanvasElement>('#postcard-canvas'), sheets, c));
+  const title = $('#postcard-title'), text = $('#postcard-text'), copy = $<HTMLButtonElement>('#postcard-copy');
+  copy.hidden = true;
+  if (how === 'album') { title.textContent = `Carte du ${kikouName(c.from).replace(/^le /, '')}`; text.textContent = ''; }
+  else if (social.sent.includes(c.id)) {
+    title.textContent = "C'est ta carte !"; text.textContent = 'Envoie ce lien à un ami pour qu’il la reçoive.';
+  } else {
+    const isNew = receive(social, c, clock()); saveSocial();
+    title.textContent = `Tu as reçu une carte du ${kikouName(c.from).replace(/^le /, '')} !`;
+    text.textContent = isNew
+      ? `${cap1(kikouName(c.from))} vient en visite chez toi pour la journée.`
+      : 'Cette carte est déjà dans ta boîte aux lettres.';
+    if (isNew) queue.push(reactionClip('fete'));
+    if (how === 'link' && IOS && !STANDALONE) {
+      text.textContent += " Tu joues depuis l'icône du jeu ? Copie la carte, puis colle-la dans Menu, Cartes postales.";
+      copy.hidden = false;
+      copy.onclick = async () => {
+        try { await navigator.clipboard.writeText(cardLink(c)); copy.textContent = 'Carte copiée !'; } catch { copy.textContent = 'Copie impossible'; }
+      };
+    }
+    jingle([659, 784, 988]);
+  }
+  document.querySelectorAll<HTMLElement>('.overlay').forEach((o) => { if (o.id !== 'end') o.hidden = true; });
+  $('#postcard').hidden = false;
+}
+
+/** Carte reçue par le lien d'ouverture (#carte=…). */
+function checkCardLink() {
+  if (!location.hash.includes('carte=')) return;
+  const c = decodeCard(location.hash);
+  history.replaceState(null, '', location.pathname + location.search);
+  if (c) showPostcard(c, 'link');
+}
+
 function setupInstall() {
-  const standalone = matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+  const standalone = STANDALONE;
   if (standalone) return;
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ios = IOS;
   let dismissed = false;
   try { dismissed = sessionStorage.getItem('kg_install_x') === '1'; } catch { /* */ }
   if (dismissed) return;
@@ -219,6 +351,21 @@ function bindUI() {
   $('#confirm-yes').onclick = async () => { $('#confirm').hidden = true; await newKikou(); };
   $('#end-restart').onclick = () => newKikou();
   $('#dream-close').onclick = () => { $('#dream').hidden = true; };
+  $('#compose-open').onclick = openCompose;
+  $('#compose-back').onclick = () => { $('#compose').hidden = true; openOverlay('postbox'); };
+  $('#compose-send').onclick = sendCard;
+  $('#postcard-close').onclick = () => { $('#postcard').hidden = true; };
+  $('#pseudo').addEventListener('change', () => { if (readPseudo()) renderPostbox(); });
+  $('#card-paste').onclick = async () => {
+    const ta = $<HTMLTextAreaElement>('#card-code');
+    let v = ta.value.trim();
+    if (!v) { try { v = await navigator.clipboard.readText(); } catch { /* */ } }
+    const c = v ? decodeCard(v) : null;
+    if (!c) { $('#postbox-msg').textContent = v ? "Ce lien n'est pas une carte de kikou." : 'Colle d’abord le lien de la carte.'; return; }
+    ta.value = '';
+    showPostcard(c, 'paste');
+  };
+  window.addEventListener('hashchange', checkCardLink);
   $('#backup-copy').onclick = async () => {
     const ta = $<HTMLTextAreaElement>('#backup-code');
     try { await navigator.clipboard.writeText(ta.value); $('#backup-msg').textContent = 'Code copié.'; }
@@ -270,11 +417,13 @@ function debugPanel() {
 async function boot() {
   bindUI(); fitCanvas(); setupInstall(); askPersist();
   const base = import.meta.env.BASE_URL;
-  const [saved, ph] = await Promise.all([
+  const [saved, ph, soc] = await Promise.all([
     loadSave(),
     fetch(base + 'reves/reves.json').then((r) => r.json()).catch(() => ({ photos: [] })),
+    loadSocial(),
     sheets.load(base),
   ]);
+  social = soc;
   photos = ph.photos as string[];
   credits = ph.credits ?? {};
   if (saved) {
@@ -284,6 +433,7 @@ async function boot() {
   } else {
     await newKikou();
   }
+  checkCardLink();
   requestAnimationFrame(frame);
   setInterval(() => { if (!busy()) sync(); }, 20_000);
   if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register(base + 'sw.js').catch(() => {});

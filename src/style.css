@@ -74,3 +74,10 @@ textarea { width: 100%; font-family: ui-monospace, monospace; font-size: .75rem;
 .credit { font-size: .75rem; color: var(--muted); margin: 0; }
 #album-credits { display: flex; flex-direction: column; gap: 4px; font-size: .75rem; }
 #album-credits a { color: var(--muted); }
+canvas.postcard { width: 100%; height: auto; border: 0; image-rendering: auto; }
+#cards-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+#cards-grid canvas { width: 100%; height: auto; cursor: pointer; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.card .chips button { font-size: .9rem; padding: 6px 10px; }
+.card .chips button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.card input, .card select { width: 100%; font: inherit; font-size: 1.05rem; padding: 8px; border-radius: 0; border: 2px solid var(--line); background: var(--bg); color: var(--ink); -webkit-user-select: text; user-select: text; }
