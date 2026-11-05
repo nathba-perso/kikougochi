@@ -1,6 +1,6 @@
 // Vérifie que le moteur TypeScript reproduit l'équilibrage de simulation.py.
 // Lancer : npm run simulate   (fuseau forcé en UTC, partie démarrée à 8h00)
-import { Kikou, hourOf, dayKey } from '../src/engine/kikou';
+import { Kikou, hourOf, dayKey, migrate } from '../src/engine/kikou';
 import { Rng } from '../src/engine/rng';
 import { type Action } from '../src/engine/params';
 
@@ -78,8 +78,27 @@ for (const name of Object.keys(PROFILES)) {
   const v1: any = { ...k.toJSON(), v: 1 };
   delete v1.X; delete v1.poops; delete v1.poopAt;
   const m = new Kikou(v1);
-  const ok = m.s.v === 2 && m.stage() === k.stage() && m.s.G === k.s.G && m.s.poops === 0 && m.s.X === 20;
+  const ok = m.s.v === 3 && m.stage() === k.stage() && m.s.G === k.s.G && m.s.poops === 0 && m.s.X === 20;
   m.act('nourrir', m.s.t); m.catchUp(m.s.t + 5 * 3600000);
-  console.log(`migration v1 -> v2 : ${ok ? 'ok' : 'ÉCHEC'} (stade ${m.stage()}, caca après repas : ${m.s.poops})`);
-  if (!ok) throw new Error('migration v1 -> v2 en échec');
+  console.log(`migration v1 -> v3 : ${ok ? 'ok' : 'ÉCHEC'} (stade ${m.stage()}, caca après repas : ${m.s.poops})`);
+  if (!ok) throw new Error('migration v1 -> v3 en échec');
+}
+
+// Bug des cartes postales : une vieille copie du kikou (onglet ou Safari) rattrape des jours sans repas
+// et part « de faim ». La migration v2 -> v3 le fait revenir avec son stade, sans rejouer le temps manqué.
+{
+  const { k } = run('ideal', 2, 9);
+  const stale = new Kikou(JSON.parse(JSON.stringify(k.toJSON())));
+  stale.catchUp(stale.s.t + 4 * 86400000);
+  const left = stale.s.gone?.cause;
+  const v2: any = { ...stale.toJSON(), v: 2 }; delete v2.w;
+  const now = stale.s.t + 3600000;
+  const m = new Kikou(migrate(v2, now)!);
+  const st = m.stage();
+  m.catchUp(now + 6 * 3600000);
+  const ok = left === 'faim' && !m.over && st === stale.stage() && m.s.t >= now - 300000 && m.visible() !== 'faim';
+  console.log(`retour du kikou parti (${left}) : ${ok ? 'ok' : 'ÉCHEC'} (stade ${st}, état 6 h après ${m.visible()})`);
+  if (!ok) throw new Error('retour du kikou parti en échec');
+  const v3 = migrate({ ...stale.toJSON(), v: 3 }, now)!;
+  if (!v3.gone) throw new Error('un départ en v3 ne doit pas être annulé');
 }
