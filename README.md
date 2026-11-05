@@ -69,3 +69,10 @@ pour restaurer le kikou sur un autre téléphone.
 La sauvegarde est versionnée (`v` dans `KikouSave`). Une ancienne sauvegarde ou un ancien code est mis à
 niveau au chargement par `migrate()` (`src/engine/kikou.ts`) : le kikou garde son stade et sa croissance,
 les nouvelles variables démarrent à leur valeur de repos. `npm run simulate` vérifie cette migration.
+
+Plusieurs copies du jeu peuvent être ouvertes en même temps (l'app installée et un onglet ouvert par une carte
+postale, par exemple). Chaque écriture note l'heure réelle (`w`) : avant de rattraper le temps ou d'écrire, une
+copie reprend la sauvegarde si une autre l'a écrite après elle, au lieu de rejouer des heures sans les soins faits
+ailleurs. Sur iPhone, une carte ouverte dans Safari avec une vieille sauvegarde laisse le kikou en lecture seule
+(Safari ne voit pas la sauvegarde de l'app installée). La migration v2 → v3 fait revenir les kikous partis à
+cause de ce bug, avec leur stade.

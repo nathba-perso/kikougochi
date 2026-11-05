@@ -5,7 +5,7 @@ import { Sheets } from './render/sheets';
 import { actionIcon } from './render/sprites';
 import { actionClip, reactionClip, introClip, evolveClip, goneClip } from './render/clips';
 import { P } from './engine/params';
-import { loadSave, writeSave, clearSave, askPersist, exportCode, importCode } from './storage';
+import { loadSave, writeSave, clearSave, askPersist, exportCode, importCode, peekSave, SAVE_KEY } from './storage';
 import {
   loadSocial, writeSocial, decodeCard, newCard, cardLink, receive, activeVisit, kikouName, cleanPseudo,
   DECORS, MESSAGES, type Social, type Card,
@@ -31,6 +31,12 @@ const queue: Clip[] = [];
 let clip: Clip | null = null, clipStart = 0;
 let animState: Visible | null = null, animStart = 0;
 let endShown = false;
+/**
+ * Copie en lecture seule : sur iPhone, une carte ouverte dans Safari ne voit pas la sauvegarde de l'app
+ * installée. On n'y fait pas avancer une vieille copie du kikou (elle partirait de faim) : il faut
+ * ouvrir le jeu depuis son icône. Recharger la page sans carte permet quand même de jouer ici.
+ */
+let frozen = false;
 let social: Social = { pseudo: '', cards: [], sent: [], visit: null };
 const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const STANDALONE = matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
@@ -43,6 +49,7 @@ const STATE_TEXT: Record<Visible, string> = {
 
 /** Texte sous la scène : l'état visible, précisé par l'excitation et la propreté. */
 function captionFor(vis: Visible) {
+  if (frozen) return "Ouvre le jeu depuis son icône pour retrouver ton kikou";
   if (k.over) return '';
   const calmish = vis === 'calme' || vis === 'content' || vis === 'teuf';
   if (calmish && k.s.X >= P.X_over) return 'Kikou est tout excité';
@@ -52,7 +59,23 @@ function captionFor(vis: Visible) {
   return STATE_TEXT[vis];
 }
 
-function save() { return writeSave(k.toJSON()); }
+function save() {
+  if (frozen) return Promise.resolve();
+  if (adoptNewer()) return Promise.resolve(); // une autre copie a écrit après nous : on ne l'écrase pas
+  k.s.w = Date.now();
+  return writeSave(k.toJSON());
+}
+
+/** Reprend la sauvegarde si une autre copie du jeu l'a écrite après nous. Renvoie true si c'est le cas. */
+function adoptNewer(): boolean {
+  if (frozen) return false;
+  const other = peekSave();
+  if (!other || (other.w || 0) <= (k.s.w || 0)) return false;
+  k = new Kikou(other);
+  endShown = false; $('#end').hidden = true;
+  queue.length = 0; clip = null;
+  return true;
+}
 const photoUrl = (name: string) => import.meta.env.BASE_URL + 'reves/' + name;
 const busy = () => clip !== null || queue.length > 0;
 
@@ -77,13 +100,14 @@ function frame() {
   const cap = clip?.caption ?? captionFor(vis);
   const capEl = $('#caption');
   if (capEl.textContent !== cap) capEl.textContent = cap || ' ';
-  const dis = busy() || k.over;
+  const dis = frozen || busy() || k.over;
   document.querySelectorAll<HTMLButtonElement>('#actions button').forEach((b) => (b.disabled = dis));
   if (DEBUG) debugPanel();
   requestAnimationFrame(frame);
 }
 
 function onClipsDone() {
+  if (frozen) return;
   if (k.over) showEnd();
   else maybeDream();
 }
@@ -91,6 +115,8 @@ function onClipsDone() {
 // ---------- logique ----------
 /** Rattrape le temps écoulé et met en file ce qu'il faut montrer (évolution, départ, victoire). */
 function sync() {
+  if (frozen) return;
+  adoptNewer(); // avant de rattraper le temps : sinon on rejouerait des heures sans les soins faits ailleurs
   if (k.over) { if (!busy()) showEnd(); return; }
   const poopsBefore = k.s.poops;
   k.catchUp(clock());
@@ -107,7 +133,8 @@ function sync() {
 }
 
 function doAction(a: Action) {
-  if (busy() || k.over) return;
+  if (frozen || busy() || k.over) return;
+  if (adoptNewer()) return;
   unlockAudio();
   k.catchUp(clock());
   if (k.over) return sync();
@@ -153,6 +180,8 @@ function showEnd() {
 async function newKikou() {
   await clearSave();
   k = Kikou.create(clock());
+  k.s.w = Date.now();
+  frozen = false;
   endShown = false;
   queue.length = 0; clip = null;
   $('#end').hidden = true;
@@ -374,10 +403,12 @@ function bindUI() {
   $('#restore-go').onclick = async () => {
     const s = importCode(($<HTMLTextAreaElement>('#restore-code')).value);
     if (!s) { $('#backup-msg').textContent = "Ce code n'est pas valide."; return; }
-    k = new Kikou(s); endShown = false; queue.length = 0; clip = null;
+    frozen = false;
+    k = new Kikou(s); k.s.w = Date.now(); endShown = false; queue.length = 0; clip = null;
     $('#end').hidden = true; $('#backup').hidden = true;
     sync();
   };
+  window.addEventListener('storage', (e) => { if (e.key === SAVE_KEY && !busy()) adoptNewer(); });
   window.addEventListener('resize', fitCanvas);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') save();
@@ -414,6 +445,7 @@ function debugPanel() {
 }
 
 // ---------- démarrage ----------
+const STALE_MS = 6 * 3_600_000;
 async function boot() {
   bindUI(); fitCanvas(); setupInstall(); askPersist();
   const base = import.meta.env.BASE_URL;
@@ -426,7 +458,13 @@ async function boot() {
   social = soc;
   photos = ph.photos as string[];
   credits = ph.credits ?? {};
-  if (saved) {
+  const viaCard = location.hash.includes('carte=');
+  const stale = !saved || clock() - saved.t > STALE_MS;
+  if (viaCard && IOS && !STANDALONE && stale) {
+    // Safari ouvert par une carte, à côté de l'app installée : on montre la carte sans toucher au kikou.
+    frozen = true;
+    k = saved ? new Kikou(saved as KikouSave) : Kikou.create(clock());
+  } else if (saved) {
     k = new Kikou(saved as KikouSave); // déjà mise à niveau par loadSave
     if (!saved.wokenUntil) k.s.wokenUntil = -1;
     sync();

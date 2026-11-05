@@ -14,10 +14,10 @@ export type Reaction =
 export type Visible = 'dort' | 'colere' | 'faim' | 'grognon' | 'teuf' | 'content' | 'calme';
 export type GoneCause = 'faim' | 'colere' | 'rancune';
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface KikouSave {
-  v: 2;
+  v: 3;
   seed: number;
   rng: number;
   born: number;        // ms
@@ -37,17 +37,38 @@ export interface KikouSave {
   X: number;           // excitation (0-100)
   poops: number;       // cacas par terre
   poopAt: number[];    // ms : cacas en cours de digestion
+  // v3
+  w: number;           // ms (heure réelle) : dernière écriture de la sauvegarde, pour repérer une copie périmée
 }
 
 /**
  * Met à niveau une sauvegarde d'une version précédente : le kikou garde son stade, sa croissance
  * et tout son état ; les nouveautés démarrent à leur valeur de repos. Renvoie null si illisible.
  */
-export function migrate(raw: any): KikouSave | null {
+export function migrate(raw: any, now = Date.now()): KikouSave | null {
   if (!raw || typeof raw !== 'object' || typeof raw.G !== 'number') return null;
   if (raw.v === 1) raw = { ...raw, v: 2, X: P.X_rest, poops: 0, poopAt: [] };
+  if (raw.v === 2) raw = revive({ ...raw, v: 3, w: 0 }, now);
   if (raw.v !== SAVE_VERSION) return null;
   return raw as KikouSave;
+}
+
+/**
+ * Fait revenir un kikou parti à cause du bug des cartes postales (version 2 de la sauvegarde) :
+ * ouvrir une carte lançait une deuxième copie du jeu (onglet du navigateur, Safari sur iPhone) qui
+ * rejouait des jours sans repas à partir d'une vieille sauvegarde, puis écrasait la bonne.
+ * Une sauvegarde v2 n'a existé que pendant ce bug : tout départ qu'elle contient est annulé.
+ * Le kikou garde son stade et sa croissance, revient rassasié et calme, et le temps manqué
+ * n'est pas rejoué.
+ */
+function revive(s: any, now: number) {
+  if (!s.gone) return s;
+  return {
+    ...s, gone: null,
+    S: Math.max(s.S, 70), E: Math.max(s.E, 70), A: Math.min(s.A, 10), B: Math.max(s.B, 50), R: 0,
+    sZero: 0, aMax: 0, X: P.X_rest, poops: 0, poopAt: [], asleep: false, wokenUntil: -1, hist: [],
+    t: Math.max(s.t, Math.floor(now / STEP_MS) * STEP_MS),
+  };
 }
 
 export function dayKey(ms: number) {
@@ -88,12 +109,12 @@ export class Kikou {
   static create(now: number, seed = (Math.random() * 2 ** 32) >>> 0): Kikou {
     const t = Math.floor(now / STEP_MS) * STEP_MS;
     return new Kikou({
-      v: 2, seed, rng: seed, born: now, t,
+      v: 3, seed, rng: seed, born: now, t,
       S: 80, E: 80, B: 50, A: 0, G: 0, R: 0,
       asleep: false, wokenUntil: -Infinity,
       hist: [], sZero: 0, aMax: 0, day: -1, noise: 1, jit: 0,
       gone: null, won: null, shownStage: 0, dreamDay: -1, album: [],
-      X: P.X_rest, poops: 0, poopAt: [],
+      X: P.X_rest, poops: 0, poopAt: [], w: 0,
     });
   }
 

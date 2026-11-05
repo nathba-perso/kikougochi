@@ -11,9 +11,18 @@ export async function loadSave(): Promise<KikouSave | null> {
   try { a = (await get(KEY)) ?? null; } catch { /* IndexedDB indisponible */ }
   try { const raw = localStorage.getItem(KEY); b = raw ? JSON.parse(raw) : null; } catch { /* */ }
   a = migrate(a); b = migrate(b);
-  if (a && b) return a.t >= b.t ? a : b; // la plus récente gagne
+  if (a && b) return (a.w || a.t) >= (b.w || b.t) ? a : b; // la plus récente gagne
   return a ?? b;
 }
+
+/**
+ * Lecture immédiate de la copie localStorage, pour savoir si une autre copie du jeu ouverte en même
+ * temps (onglet du navigateur, app installée) a écrit une sauvegarde plus récente que la nôtre.
+ */
+export function peekSave(): KikouSave | null {
+  try { const raw = localStorage.getItem(KEY); return raw ? migrate(JSON.parse(raw)) : null; } catch { return null; }
+}
+export const SAVE_KEY = KEY;
 
 export async function writeSave(s: KikouSave) {
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* */ }
