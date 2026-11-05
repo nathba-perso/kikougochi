@@ -65,6 +65,7 @@
   <div id="menu" class="overlay" hidden>
     <div class="card">
       <h2>Menu</h2>
+      <button data-open="postbox">Cartes postales</button>
       <button data-open="album">Album des rêves</button>
       <button data-open="backup">Code de sauvegarde</button>
       <button data-open="install-help">Installer sur le téléphone</button>
@@ -80,6 +81,49 @@
       <div id="album-grid"></div>
       <div id="album-credits"></div>
       <button data-close class="ghost">Fermer</button>
+    </div>
+  </div>
+
+  <div id="postbox" class="overlay" hidden>
+    <div class="card">
+      <h2>Cartes postales</h2>
+      <div id="pseudo-box">
+        <p class="small">Comment tu t'appelles ? Ton kikou signera ses cartes « le kikou de … ».</p>
+        <input id="pseudo" maxlength="16" autocomplete="nickname" placeholder="Ton prénom ou pseudo" />
+      </div>
+      <p id="pseudo-line" class="small" hidden></p>
+      <button id="compose-open" class="primary">Envoyer une carte</button>
+      <p class="small">Tu as reçu une carte par message ? Touche son lien, ou colle-le ici :</p>
+      <textarea id="card-code" rows="2" placeholder="Lien de la carte"></textarea>
+      <button id="card-paste">Ouvrir la carte</button>
+      <p id="postbox-msg" class="small"></p>
+      <p id="cards-count" class="small"></p>
+      <div id="cards-grid"></div>
+      <button data-close class="ghost">Fermer</button>
+    </div>
+  </div>
+
+  <div id="compose" class="overlay" hidden>
+    <div class="card">
+      <h2>Ta carte</h2>
+      <canvas id="compose-preview" class="postcard"></canvas>
+      <p class="small">Décor</p>
+      <div id="decor-choice" class="chips"></div>
+      <p class="small">Message</p>
+      <select id="message-choice"></select>
+      <button id="compose-send" class="primary">Envoyer</button>
+      <p id="compose-msg" class="small"></p>
+      <button id="compose-back" class="ghost">Retour</button>
+    </div>
+  </div>
+
+  <div id="postcard" class="overlay" hidden>
+    <div class="card dream-card">
+      <p id="postcard-title" class="small"></p>
+      <canvas id="postcard-canvas" class="postcard"></canvas>
+      <p id="postcard-text" class="small"></p>
+      <button id="postcard-copy" hidden>Copier la carte</button>
+      <button id="postcard-close" class="primary">Merci !</button>
     </div>
   </div>
 
