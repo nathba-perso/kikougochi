@@ -9,6 +9,8 @@ const FALLBACK: Record<string, string> = {
   'r:content': 'content', 'r:fete': 'teuf', 'r:pascontent': 'grognon', 'r:sendort': 'dort',
   'r:dortsourit': 'dort', 'r:refuse': 'grognon', 'r:apaise': 'grognon', 'r:reveille': 'colere', 'r:mange': 'calme',
   'r:propre': 'content', 'r:rien': 'calme', 'r:surexcite': 'teuf', 'r:caca': 'calme',
+  'r:amuse': 'teuf', 'r:blotti': 'content', 'r:bisou': 'content', 'r:pardonne': 'content', 'r:ravi': 'teuf',
+  'r:bof': 'calme', 'r:beurk': 'grognon',
 };
 
 export class Sheets {

@@ -95,7 +95,9 @@ function frame() {
   const mode = k.s.gone ? (clip ? 'jeu' : 'parti') : k.s.won ? 'gagne' : 'jeu';
   const v = activeVisit(social, clock());
   const visitor = v && mode === 'jeu' ? { stage: v.st, anim: vis === 'dort' ? 'dort' : 'calme' } : undefined;
-  scene.render(now, { stage: k.stage(), anim: k.s.won ? 'teuf' : vis, hour: hourOf(clock()), mode, poops: k.s.poops, visitor },
+  // bulle d'envie : par intermittence (3,5 s toutes les 12 s), il faut regarder le kikou pour la voir
+  const envie = mode === 'jeu' && !frozen && now % 12000 < 3500 ? k.envie(clock()) : null;
+  scene.render(now, { stage: k.stage(), anim: k.s.won ? 'teuf' : vis, hour: hourOf(clock()), mode, poops: k.s.poops, visitor, envie },
     clip, now - clipStart, now - animStart);
   const cap = clip?.caption ?? captionFor(vis);
   const capEl = $('#caption');
@@ -323,7 +325,7 @@ function showPostcard(c: Card, how: 'link' | 'paste' | 'album') {
     const isNew = receive(social, c, clock()); saveSocial();
     title.textContent = `Tu as reçu une carte du ${kikouName(c.from).replace(/^le /, '')} !`;
     text.textContent = isNew
-      ? `${cap1(kikouName(c.from))} vient en visite chez toi pour la journée.`
+      ? `${cap1(kikouName(c.from))} vient en visite chez toi pendant une heure.`
       : 'Cette carte est déjà dans ta boîte aux lettres.';
     if (isNew) queue.push(reactionClip('fete'));
     if (how === 'link' && IOS && !STANDALONE) {

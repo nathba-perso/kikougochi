@@ -36,10 +36,26 @@ python3 tools/make_assets.py                        # icônes de l'app + rêves 
 | Action | Rôle |
 |---|---|
 | Nourrir | Remplit la satiété. 2 à 4 h après chaque repas, le kikou fait un caca (seulement réveillé, 3 au plus). |
-| Pip | Jouer : gros bonheur, mais ça l'**excite** et le fatigue un peu. Trop excité, il ne s'endort pas et s'agace. |
-| Câlin | Calmer : fait baisser la colère et l'excitation, peut l'endormir le soir, marche même quand il est fâché. |
-| Bisou | Aimer : bonheur, et il pardonne un peu (la rancune baisse). |
+| Pip | Jouer : bonheur, mais ça l'**excite** et le fatigue un peu. Trop excité, il ne s'endort pas et s'agace. Réaction : étoiles. |
+| Câlin | Calmer : fait baisser la colère et l'excitation, peut l'endormir le soir, marche même quand il est fâché. Réaction : il se blottit. |
+| Bisou | Aimer : bonheur, et il pardonne un peu (la rancune baisse). 3 par jour au plus, ensuite « beurk ». Réaction : il rend le bisou. |
 | Nettoyer | Enlève les cacas (ne le réveille pas). Tant qu'il en reste, il perd du bonheur et s'agace doucement. |
+
+### Envies
+
+De temps en temps (3,5 s toutes les 12 s), une bulle au-dessus du kikou montre le soin qu'il veut (`envie` dans
+`src/engine/kikou.ts`) :
+
+| Bulle | Quand |
+|---|---|
+| Cœur (câlin) | Excitation ≥ 55, agacement ≥ 30, ou dans l'heure avant de dormir (sans câlin depuis 1 h) |
+| Lèvres (bisou) | Il boude (rancune), vient de se réveiller, ou le joueur revient après plus de 6 h ; pas après 3 bisous dans la journée |
+| Balle (pip) | En forme (énergie ≥ 50), calme (excitation < 35), pas joué depuis 3 h, pas juste avant de dormir |
+
+Le bon soin donne ×1,5 de bonheur et la réaction « C'est exactement ce qu'il voulait ! ». Un autre soin pendant
+une envie ne donne que la moitié, l'agace un peu et répond « Bof… ». Le rendement décroissant est commun à pip,
+câlin et bisou : appuyer sur les trois à l'aveugle rapporte autant qu'un seul soin bien choisi. Pas de bulle :
+effet normal.
 
 L'excitation (X) est une variable cachée qui revient seule vers 20 quand il est réveillé et tombe pendant le sommeil.
 
@@ -55,7 +71,7 @@ la carte avec un lien `…#carte=<code>` (partage natif du téléphone, sinon li
 toute la carte tient dans le lien (`src/social.ts`, dessin dans `src/render/postcard.ts`).
 
 En ouvrant le lien, la carte est rangée dans la boîte aux lettres et le kikou de l'ami vient en visite dans la
-scène pendant 24 h. C'est purement décoratif : aucune variable du kikou ne change. Sur iPhone, le lien s'ouvre
+scène pendant une heure (les visites reçues avant ce changement s'arrêtent aussi au bout d'une heure). C'est purement décoratif : aucune variable du kikou ne change. Sur iPhone, le lien s'ouvre
 dans Safari et non dans l'app installée : la carte propose alors « Copier la carte », à coller dans
 Menu › Cartes postales. Pseudo, cartes et visite sont stockés à part (`kikougochi.social`), hors de la sauvegarde
 du kikou : ils restent après une nouvelle partie.

@@ -3,8 +3,10 @@
 import { Kikou, hourOf, dayKey, migrate } from '../src/engine/kikou';
 import { Rng } from '../src/engine/rng';
 import { type Action } from '../src/engine/params';
+import { activeVisit } from '../src/social';
 
-type Plan = (rng: Rng, day: number) => [number, Action[]][];
+type Step = Action | 'envie'; // « envie » : le soin que montre la bulle (rien s'il n'en montre pas)
+type Plan = (rng: Rng, day: number) => [number, Step[]][];
 const CARES = ['pip', 'calin', 'bisou'] as const;
 const ideal: Plan = () => [[8.5, ['nettoyer', 'nourrir', 'calin', 'bisou']], [14, ['nettoyer', 'calin', 'pip']], [18, ['nettoyer', 'bisou', 'pip']], [20.5, ['nettoyer', 'nourrir', 'calin']]];
 const moyen: Plan = (rng) => {
@@ -25,13 +27,16 @@ const PROFILES: Record<string, Plan> = {
   sale: (rng, d) => moyen(rng, d).map(([h, a]) => [h, a.filter((x) => x !== 'nettoyer')]),
   que_pip: (rng, d) => ideal(rng, d).map(([h, a]) => [h, a.map((x) => (x === 'calin' || x === 'bisou' ? 'pip' : x))]),
   pip_soir: (rng, d) => [...ideal(rng, d), [22.8, ['pip', 'pip', 'pip']]],
+  // envies : suit la bulle (« envie ») ; appuie sur les trois soins à l'aveugle ; même rythme que moyen
+  attentif: (rng, d) => moyen(rng, d).map(([h, a]) => [h, a.map((x) => (CARES.includes(x as any) ? 'envie' : x))]),
+  alterne: (rng, d) => moyen(rng, d).map(([h, a]) => [h, a.flatMap((x) => (CARES.includes(x as any) ? [...CARES] : [x]))]),
 };
 
 const START = Date.UTC(2026, 0, 5, 8, 0);
 function run(name: string, seed: number, days = 60) {
   const k = Kikou.create(START, seed * 2654435761);
   const rng = new Rng(seed * 7 + 1);
-  let cur = -1, todo: [number, Action[]][] = [], dayIdx = -1;
+  let cur = -1, todo: [number, Step[]][] = [], dayIdx = -1;
   const states: Record<string, number> = {};
   const end = START + days * 86400000;
   let now = START;
@@ -42,7 +47,10 @@ function run(name: string, seed: number, days = 60) {
     while (todo.length && todo[0][0] <= h) {
       const [, acts] = todo.shift()!;
       const st = k.visible(); states[st] = (states[st] || 0) + 1;
-      for (const a of acts) k.act(a, now);
+      for (const a of acts) {
+        const x = a === 'envie' ? k.envie(now) ?? rng.pick(CARES) : a;
+        if (x) k.act(x, now);
+      }
     }
     now += 5 * 60000;
     k.catchUp(now);
@@ -101,4 +109,32 @@ for (const name of Object.keys(PROFILES)) {
   if (!ok) throw new Error('retour du kikou parti en échec');
   const v3 = migrate({ ...stale.toJSON(), v: 3 }, now)!;
   if (!v3.gone) throw new Error('un départ en v3 ne doit pas être annulé');
+}
+
+// Envies : une partie en cours (sauvegarde v3 sans les nouveaux champs) continue telle quelle,
+// et la sauvegarde reste en v3 pour qu'une ancienne copie du jeu sache encore la lire.
+{
+  const { k } = run('ideal', 3, 10);
+  const old: any = JSON.parse(JSON.stringify(k.toJSON()));
+  for (const f of ['lastAct', 'hello', 'wokeAt', 'bisous', 'bisouDay']) delete old[f];
+  const m = new Kikou(migrate(old, old.t)!);
+  const st = m.stage(), G = m.s.G;
+  const t = m.s.t;
+  m.envie(t); m.act('bisou', t); m.act('bisou', t + 3600000); m.act('bisou', t + 7200000);
+  const r4 = m.act('bisou', t + 3 * 3600000);
+  m.catchUp(t + 6 * 3600000);
+  const ok = m.s.v === 3 && st === k.stage() && G === k.s.G && !m.over && r4.includes('beurk');
+  console.log(`envies sur une partie en cours : ${ok ? 'ok' : 'ÉCHEC'} (stade ${st}, 4e bisou du jour : ${r4.join(', ')})`);
+  if (!ok) throw new Error('envies : partie en cours en échec');
+}
+
+// Visite d'une carte postale : une heure, y compris pour une visite reçue avant ce changement (24 h).
+{
+  const H = 3600000, t0 = START;
+  const now = { pseudo: '', cards: [], sent: [], visit: { from: 'a', st: 1, at: t0, until: t0 + H } };
+  const old = { pseudo: '', cards: [], sent: [], visit: { from: 'b', st: 1, until: t0 + 24 * H } };
+  const ok = !!activeVisit(now, t0 + 59 * 60000) && !activeVisit(now, t0 + H)
+    && !!activeVisit(old, t0 + 30 * 60000) && !activeVisit(old, t0 + 2 * H);
+  console.log(`visite d'une heure : ${ok ? 'ok' : 'ÉCHEC'}`);
+  if (!ok) throw new Error('visite : durée en échec');
 }

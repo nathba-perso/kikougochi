@@ -35,8 +35,17 @@ export const P = {
   E_pip: 1,
   // Bisou : il pardonne un peu (baisse la rancune)
   R_bisou: 3,
+  // Envies : le kikou montre (bulle) le soin qu'il veut. Le bon soin compte plus, un autre déçoit un peu.
+  care_tau: 1,            // rendement décroissant commun aux soins : f = 1 / (1 + care_tau × soins des 2 dernières heures)
+  want_hit: 1.5, want_miss: 0.5, A_bof: 1,
+  want_X: 55, want_A: 30,   // envie de câlin : trop excité ou agacé
+  want_pip_E: 50, want_pip_X: 35, want_pip_h: 3, // envie de pip : en forme, calme, pas joué depuis 3 h
+  want_bisou_R: 1, want_bisou_h: 1, absent_h: 6, // envie de bisou : rancune, réveil, retrouvailles
+  bisou_max: 3,             // bisous par jour ; au-delà : « beurk »
 };
 
 export const MEAL_WINDOWS: [number, number][] = [[7.5, 9.5], [19.5, 21.5]];
 export const ACTIONS = ['nourrir', 'pip', 'calin', 'bisou', 'nettoyer'] as const;
 export type Action = typeof ACTIONS[number];
+export const CARES = ['pip', 'calin', 'bisou'] as const;
+export type Care = typeof CARES[number];
