@@ -1,6 +1,6 @@
 // Vérifie que le moteur TypeScript reproduit l'équilibrage de simulation.py.
 // Lancer : npm run simulate   (fuseau forcé en UTC, partie démarrée à 8h00)
-import { Kikou, hourOf, dayKey, migrate } from '../src/engine/kikou';
+import { Kikou, hourOf, dayKey, migrate, OUTAGE_START, resumeAfterOutage } from '../src/engine/kikou';
 import { Rng } from '../src/engine/rng';
 import { type Action } from '../src/engine/params';
 import { activeVisit } from '../src/social';
@@ -137,4 +137,40 @@ for (const name of Object.keys(PROFILES)) {
     && !!activeVisit(old, t0 + 30 * 60000) && !activeVisit(old, t0 + 2 * H);
   console.log(`visite d'une heure : ${ok ? 'ok' : 'ÉCHEC'}`);
   if (!ok) throw new Error('visite : durée en échec');
+}
+
+// Coupure du site (dimanche 8 novembre 2026, 17h) : les parties reprennent à 17h, le temps ne compte
+// qu'à partir de la mise en ligne du correctif.
+{
+  const H = 3600000;
+  const back = OUTAGE_START + 2 * 24 * H + 3 * H; // mise en ligne : mardi 20h
+  const game = (start: number) => {
+    const k = Kikou.create(start, 7);
+    const plan: [number, Action[]][] = [[8.5, ['nourrir', 'calin']], [14, ['pip']], [20.5, ['nourrir', 'bisou']]];
+    for (let now = start; now < OUTAGE_START - 2 * H; now += 5 * 60000) {
+      k.catchUp(now);
+      for (const [h, acts] of plan) if (Math.abs(hourOf(now) - h) < 1 / 24) for (const a of acts) k.act(a, now);
+    }
+    const s: any = k.toJSON(); delete s.pause; return s; // sauvegarde d'avant le correctif
+  };
+  const before = game(OUTAGE_START - 9 * 24 * H);
+  // 1. parti pendant la coupure (ouvert mardi avec l'ancien jeu) : il revient, même stade
+  const left = new Kikou({ ...before, pause: 1 } as any); left.catchUp(back - H);
+  const r1 = new Kikou(migrate({ ...left.toJSON(), pause: undefined }, back)!);
+  // 2. pas rouvert depuis dimanche : reprend l'état de 17h, sans rejouer la coupure
+  // (la mise en ligne est l'heure de construction ; ici on la donne à la main, le joueur ouvre 5 jours après)
+  const r2 = new Kikou(resumeAfterOutage(JSON.parse(JSON.stringify(before)), back));
+  const ref = new Kikou({ ...before, pause: 1 } as any); ref.catchUp(OUTAGE_START);
+  // 3. parti avant dimanche 17h : il reste parti
+  const old = new Kikou({ ...before, pause: 1 } as any); old.catchUp(OUTAGE_START - 3 * H + 4 * 24 * H);
+  const early: any = { ...old.toJSON(), gone: { cause: 'faim', at: OUTAGE_START - H } }; delete early.pause;
+  // 4. nouvelle partie après la coupure : rien ne change
+  const fresh: any = Kikou.create(back - 2 * H, 3).toJSON(); delete fresh.pause;
+  const r4 = migrate(fresh, back)!;
+  const ok = !!left.s.gone && !r1.over && r1.stage() === left.stage() && r1.s.t <= back
+    && !r2.over && r2.s.G === ref.s.G && r2.s.S === ref.s.S && Math.abs(r2.s.t - back) < 5 * 60000
+    && !!migrate(early, back)!.gone && r4.t === fresh.t && r4.pause === 1;
+  r1.catchUp(back + 6 * H); r2.catchUp(back + 6 * H);
+  console.log(`reprise après la coupure : ${ok && !r1.over && !r2.over ? 'ok' : 'ÉCHEC'} (parti → revenu stade ${r1.stage()}, en cours → état de 17h, S ${Math.round(ref.s.S)})`);
+  if (!ok) throw new Error('reprise après la coupure en échec');
 }

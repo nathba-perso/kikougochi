@@ -45,7 +45,15 @@ export interface KikouSave {
   hello?: number;      // ms : retrouvailles (retour après une longue absence)
   wokeAt?: number;     // ms : dernier réveil naturel
   bisous?: number; bisouDay?: number; // bisous du jour
+  pause?: 1;           // la coupure du site de novembre 2026 a déjà été rattrapée (voir resumeAfterOutage)
 }
+
+// Heure de construction du jeu, fixée par vite.config.ts (absente dans npm run simulate).
+declare const __BUILD_TIME__: number | undefined;
+const BUILD_TIME = typeof __BUILD_TIME__ === 'number' ? __BUILD_TIME__ : undefined;
+
+/** Début de la coupure du site : dimanche 8 novembre 2026, 17h (heure du téléphone). */
+export const OUTAGE_START = new Date(2026, 10, 8, 17, 0).getTime();
 
 /**
  * Met à niveau une sauvegarde d'une version précédente : le kikou garde son stade, sa croissance
@@ -56,7 +64,40 @@ export function migrate(raw: any, now = Date.now()): KikouSave | null {
   if (raw.v === 1) raw = { ...raw, v: 2, X: P.X_rest, poops: 0, poopAt: [] };
   if (raw.v === 2) raw = revive({ ...raw, v: 3, w: 0 }, now);
   if (raw.v !== SAVE_VERSION) return null;
+  if (!raw.pause) raw = resumeAfterOutage(raw, Math.min(now, BUILD_TIME ?? now));
   return raw as KikouSave;
+}
+
+/**
+ * Coupure du site (compte GitHub suspendu) à partir du dimanche 8 novembre 17h : le jeu ne s'ouvrait
+ * plus et les kikous sont partis faute de soins. Une seule fois par sauvegarde, la partie reprend
+ * l'état de dimanche 17h, et le temps ne recommence à compter qu'à `resume` (mise en ligne de ce
+ * correctif) : rien n'est rejoué entre les deux.
+ * - Pas encore parti et pas ouvert depuis dimanche 17h : on rattrape jusqu'à 17h, puis on saute à
+ *   `resume`. S'il part avant 17h, c'était sans rapport avec la coupure : il reste parti.
+ * - Ouvert après dimanche 17h et toujours là (nouvelle partie…) : rien ne change.
+ * - Parti entre dimanche 17h et `resume` : son état de 17h n'est plus connu, il revient comme après
+ *   le bug des cartes postales (même stade et même croissance, rassasié et calme).
+ */
+export function resumeAfterOutage(raw: any, resume: number) {
+  let s = { ...raw, pause: 1 };
+  if (s.won) return s;
+  if (s.gone) return s.gone.at >= OUTAGE_START && s.gone.at <= resume + STEP_MS ? revive(s, resume) : s;
+  // ouvert après dimanche 17h (nouvelle partie, ou partie restée en vie) : rien à rattraper
+  if (s.t >= OUTAGE_START) return s;
+  const k = new Kikou(s);
+  k.catchUp(Math.min(OUTAGE_START, resume));
+  s = k.toJSON();
+  if (s.gone) return s;
+  const t = Math.floor(resume / STEP_MS) * STEP_MS;
+  if (s.t < t) {
+    const skip = t - s.t;
+    s.t = t;
+    // ce qui était prévu pendant la coupure est décalé d'autant (digestion, réveil forcé)
+    s.poopAt = (s.poopAt ?? []).map((x: number) => x + skip);
+    if (Number.isFinite(s.wokenUntil) && s.wokenUntil > 0) s.wokenUntil += skip;
+  }
+  return s;
 }
 
 /**
@@ -122,7 +163,7 @@ export class Kikou {
       asleep: false, wokenUntil: -Infinity,
       hist: [], sZero: 0, aMax: 0, day: -1, noise: 1, jit: 0,
       gone: null, won: null, shownStage: 0, dreamDay: -1, album: [],
-      X: P.X_rest, poops: 0, poopAt: [], w: 0,
+      X: P.X_rest, poops: 0, poopAt: [], w: 0, pause: 1,
     });
   }
 

@@ -92,3 +92,16 @@ copie reprend la sauvegarde si une autre l'a écrite après elle, au lieu de rej
 ailleurs. Sur iPhone, une carte ouverte dans Safari avec une vieille sauvegarde laisse le kikou en lecture seule
 (Safari ne voit pas la sauvegarde de l'app installée). La migration v2 → v3 fait revenir les kikous partis à
 cause de ce bug, avec leur stade.
+
+## Coupure du site (novembre 2026)
+
+Le site a été indisponible à partir du dimanche 8 novembre 2026, 17h, et les kikous sont partis faute de soins.
+Au premier chargement après la mise en ligne du correctif, chaque sauvegarde est reprise une seule fois
+(`resumeAfterOutage` dans `src/engine/kikou.ts`, marqueur `pause` dans la sauvegarde) :
+
+- kikou parti entre dimanche 17h et la mise en ligne : il revient, même stade et même croissance, rassasié et calme ;
+- kikou pas rouvert depuis dimanche : il reprend son état de dimanche 17h ;
+- dans les deux cas le temps ne compte qu'à partir de la mise en ligne (heure de construction, `__BUILD_TIME__`) ;
+- kikou parti avant dimanche 17h, ou partie commencée après : rien ne change.
+
+Le service worker ne met plus en cache une page d'erreur à la place du jeu.
