@@ -58,11 +58,11 @@ export function kikouPose(stage: number, anim: string, t: number): Pose {
       return { grid: closeEyes(g), dx: 0, dy: 0, flip: Math.floor(s / 2.5) % 2 === 1 };
     case 'colere': case 'pascontent':
       return { grid: g, dx: Math.floor(s * 12) % 2 === 0 ? -1 : 1, dy: 0, flip: false };
-    case 'refuse':
+    case 'refuse': case 'beurk':
       return { grid: closeEyes(g), dx: 0, dy: 0, flip: Math.floor(s * 4) % 2 === 1 };
-    case 'content':
+    case 'content': case 'blotti': case 'bisou': case 'pardonne':
       return { grid: blink(1800) ? closeEyes(g) : g, dx: 0, dy: Math.floor(s * 2) % 2 === 0 ? 0 : -1, flip: false };
-    case 'teuf': case 'fete': case 'surexcite': {
+    case 'teuf': case 'fete': case 'surexcite': case 'amuse': case 'ravi': {
       const ph = (s * 2.2) % 1;
       return { grid: g, dx: 0, dy: -Math.round(Math.sin(ph * Math.PI) * 4), flip: Math.floor(s * 2.2) % 2 === 1 };
     }

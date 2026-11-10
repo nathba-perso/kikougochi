@@ -26,6 +26,7 @@ export interface View {
   mode: 'jeu' | 'parti' | 'gagne' | 'vide';
   poops?: number;    // cacas par terre
   visitor?: { stage: number; anim: string }; // kikou d'un ami en visite (carte postale)
+  envie?: 'pip' | 'calin' | 'bisou' | null;   // soin réclamé, montré dans une bulle (par intermittence)
 }
 
 /** Emplacements des cacas sur le sol (à droite du kikou, le bol est à gauche). */
@@ -161,6 +162,7 @@ export class Scene {
       if (!clip) stateOverlay(this, anim, t, k);
     }
     if (!(sh?.own && clip?.decor)) clip?.over?.(this, clipT, k);
+    if (!clip && view.envie) envieBubble(this, view.envie, k);
     if (view.mode === 'gagne') confetti(this, now, 40);
     if (view.hour >= 21.5 || view.hour < 6.5) { ctx.fillStyle = 'rgba(10,10,40,0.18)'; ctx.fillRect(0, 0, W, H); }
   }
@@ -200,6 +202,18 @@ export function bigHeart(sc: Scene, k: Box, r: number, fill = false) {
     sc.px(cx + x * s, cy - y * s, '#e0443e');
     if (fill) sc.px(cx + x * s * 0.85, cy - y * s * 0.85, '#f2a3a3');
   }
+}
+
+/** Balle de jeu (envie de pip). */
+const BALL = ['.bbb.', 'bxbbb', 'yyyyy', 'bbbbb', '.bbb.'];
+
+/** Bulle d'envie : l'icône du soin que le kikou réclame (balle, cœur, lèvres). */
+export function envieBubble(sc: Scene, want: 'pip' | 'calin' | 'bisou', k: Box) {
+  bubble(sc, k, (x, y) => {
+    if (want === 'pip') sc.grid(BALL, x + 2, y);
+    else if (want === 'calin') sc.prop('coeur', x + 2, y);
+    else sc.prop('bouche', x + 1, y + 1);
+  });
 }
 
 /** Petits signes qui accompagnent chaque état visible, en plus de l'animation du kikou. */

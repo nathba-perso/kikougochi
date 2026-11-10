@@ -14,7 +14,7 @@ export interface Card {
   m: number;       // phrase (index dans MESSAGES)
   t: number;       // date d'envoi (ms)
 }
-export interface Visit { from: string; st: number; until: number }
+export interface Visit { from: string; st: number; until: number; at?: number } // at : début (absent avant la visite d'une heure)
 export interface Social { pseudo: string; cards: Card[]; sent: string[]; visit: Visit | null }
 
 export const DECORS = ['Savane', 'Plage', 'Neige', 'Nuit étoilée', 'Jardin'];
@@ -23,7 +23,8 @@ export const MESSAGES = [
   'On joue ensemble ?', 'Mon kikou a grandi !', 'Tu me manques', 'Bonne journée !',
   'Bonne nuit, fais de beaux rêves', 'Câlin de guépard !', 'Viens nous voir !', 'Joyeux anniversaire !',
 ];
-export const VISIT_MS = 24 * 3_600_000;
+export const VISIT_MS = 3_600_000; // une heure
+const OLD_VISIT_MS = 24 * 3_600_000; // durée des visites reçues avant ce changement
 const MAX_CARDS = 60;
 const KEY = 'kikougochi.social';
 
@@ -92,10 +93,15 @@ export function receive(s: Social, c: Card, now: number): boolean {
   if (s.cards.some((x) => x.id === c.id)) return false;
   s.cards.unshift(c);
   s.cards = s.cards.slice(0, MAX_CARDS);
-  s.visit = { from: c.from, st: c.st, until: now + VISIT_MS };
+  s.visit = { from: c.from, st: c.st, at: now, until: now + VISIT_MS };
   return true;
 }
 
+/** La visite en cours, ou null. Une visite reçue avant le passage à une heure s'arrête aussi au bout d'une heure. */
 export function activeVisit(s: Social, now: number): Visit | null {
-  return s.visit && s.visit.until > now ? s.visit : null;
+  const v = s.visit;
+  if (!v) return null;
+  const start = v.at ?? v.until - OLD_VISIT_MS;
+  const end = Math.min(v.until, start + VISIT_MS);
+  return now >= start && now < end ? v : null;
 }

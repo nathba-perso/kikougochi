@@ -80,6 +80,9 @@ const CAPTIONS: Record<Reaction, string> = {
   reveille: "Oh ! Tu l'as réveillé…", dortsourit: 'Il sourit en dormant', apaise: 'Ça le calme un peu…',
   propre: 'Tout propre !', rien: 'Rien à nettoyer', surexcite: 'Il est tout excité, il ne tient plus en place !',
   caca: 'Oups ! Kikou a fait caca…',
+  amuse: "Il s'est bien amusé !", blotti: 'Il se blottit contre toi…', bisou: 'Il te fait un bisou aussi !',
+  pardonne: 'Il te pardonne !', ravi: "C'est exactement ce qu'il voulait !",
+  bof: "Bof… ce n'est pas ce qu'il voulait", beurk: 'Beurk, assez de bisous pour aujourd’hui !',
 };
 
 export function reactionClip(r: Reaction): Clip {
@@ -105,17 +108,51 @@ export function reactionClip(r: Reaction): Clip {
     case 'caca': c.dur = 1800; break;
     case 'sendort': c.dur = 1800; c.over = (sc, t, k) => floatingZ(sc, t, k); break;
     case 'dortsourit': c.dur = 1800; c.over = (sc, t, k) => { floatingZ(sc, t, k); smallHeart(sc, t, k, 1800); }; break;
+    // une réaction propre à chaque soin : étoiles pour pip, ondes douces pour câlin, bisou rendu pour bisou
+    case 'amuse': c.dur = 1600; c.over = (sc, t, k) => stars(sc, t, k); break;
+    case 'blotti': c.dur = 1800; c.offset = (t) => [0, t > 200 && t < 1500 ? 1 : 0]; c.over = (sc, t, k) => softWaves(sc, t, k); break;
+    case 'bisou': c.dur = 1600; c.over = (sc, t, k) => kissBack(sc, t, k); break;
+    case 'pardonne': c.dur = 1800; c.over = (sc, t, k) => { bigHeart(sc, k, lerp(3, 7, Math.min(1, t / 700)), t > 700); kissBack(sc, t, k); }; break;
+    case 'ravi': c.dur = 1500; c.over = (sc, t, k) => { sparkles(sc, t, k.x - 3, k.y - 2, k.w + 6); smallHeart(sc, t, k, 1500); }; break;
+    case 'bof': c.dur = 1400; c.over = (sc, t, k) => bubble(sc, k, (x, y) => { for (let i = 0; i < 3; i++) if (t > 250 * (i + 1)) sc.px(x + 1 + i * 3, y + 3, '#3b2414'); }); break;
+    case 'beurk': c.dur = 1600; c.over = (sc, t, k) => bubble(sc, k, (x, y) => { sc.prop('bouche', x + 1, y + 1); if (t % 600 < 400) sc.prop('croix', x + 2, y); }); break;
   }
   return c;
 }
 
-/** Petites étincelles sur le sol propre. */
-function sparkles(sc: Scene, t: number) {
+/** Petites étincelles (par défaut sur le sol propre). */
+function sparkles(sc: Scene, t: number, x0 = 32, y0 = FLOOR - 3, w = 16) {
   for (let i = 0; i < 4; i++) {
     if ((t / 200 + i) % 3 > 1.5) continue;
-    const x = 32 + i * 4, y = FLOOR - 3 - (i % 2) * 2;
+    const x = x0 + Math.round((i * w) / 4), y = y0 - (i % 2) * 2;
     sc.px(x, y, '#ffffff'); sc.px(x - 1, y, '#fbf6d8'); sc.px(x + 1, y, '#fbf6d8'); sc.px(x, y - 1, '#fbf6d8'); sc.px(x, y + 1, '#fbf6d8');
   }
+}
+
+/** Pip : petites étoiles jaunes qui sautent autour de la tête. */
+function stars(sc: Scene, t: number, k: Box) {
+  for (let i = 0; i < 3; i++) {
+    const p = ((t / 900) + i / 3) % 1;
+    const x = k.x - 2 + i * Math.round((k.w + 4) / 2), y = k.y - 1 - Math.round(Math.sin(p * Math.PI) * 5);
+    sc.px(x, y, '#f5d742'); sc.px(x - 1, y, '#fbf6d8'); sc.px(x + 1, y, '#fbf6d8'); sc.px(x, y - 1, '#fbf6d8'); sc.px(x, y + 1, '#fbf6d8');
+  }
+}
+
+/** Câlin : ondes roses qui s'élargissent doucement autour du kikou. */
+function softWaves(sc: Scene, t: number, k: Box) {
+  const cx = k.x + k.w / 2, cy = k.y + k.h / 2;
+  for (let j = 0; j < 2; j++) {
+    const p = ((t / 1400) + j * 0.5) % 1;
+    const r = Math.max(k.w, k.h) / 2 + 1 + p * 6;
+    const col = `rgba(242,163,163,${(1 - p).toFixed(2)})`;
+    for (let a = -Math.PI * 0.9; a < -Math.PI * 0.1; a += 0.18) sc.px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, col);
+  }
+}
+
+/** Bisou rendu : des lèvres de son côté, puis un cœur rouge qui monte. */
+function kissBack(sc: Scene, t: number, k: Box) {
+  if (t < 700) sc.prop('bouche', k.x + k.w - 1, k.y + Math.floor(k.h / 3) - 2, 0, true);
+  if (t > 400) sc.prop('coeur', k.x + k.w + 1, k.y - 1 - ((t - 400) / 1200) * 7);
 }
 
 /** Arrivée : le kikou sort du carton couché sur le côté et roule jusqu'au centre. */

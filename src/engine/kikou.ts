@@ -1,6 +1,6 @@
 // Moteur du Kikougochi : port fidèle de Kikou dans kikougochi/regles/simulation.py.
 // Le temps est en millisecondes réelles ; l'heure du jour est l'heure locale du téléphone.
-import { P, MEAL_WINDOWS, type Action } from './params';
+import { P, MEAL_WINDOWS, CARES, type Action, type Care } from './params';
 import { Rng } from './rng';
 
 export const STEP_MS = P.dtMin * 60_000;
@@ -10,7 +10,8 @@ const H = 3_600_000;
 export type Reaction =
   | 'mange' | 'refuse' | 'content' | 'sendort' | 'fete'
   | 'pascontent' | 'reveille' | 'dortsourit' | 'apaise'
-  | 'propre' | 'rien' | 'surexcite' | 'caca';
+  | 'propre' | 'rien' | 'surexcite' | 'caca'
+  | 'amuse' | 'blotti' | 'bisou' | 'pardonne' | 'ravi' | 'bof' | 'beurk';
 export type Visible = 'dort' | 'colere' | 'faim' | 'grognon' | 'teuf' | 'content' | 'calme';
 export type GoneCause = 'faim' | 'colere' | 'rancune';
 
@@ -39,7 +40,20 @@ export interface KikouSave {
   poopAt: number[];    // ms : cacas en cours de digestion
   // v3
   w: number;           // ms (heure réelle) : dernière écriture de la sauvegarde, pour repérer une copie périmée
+  // Envies (facultatifs, toujours en v3 : une ancienne copie du jeu sait encore lire la sauvegarde)
+  lastAct?: number;    // ms : dernière action du joueur
+  hello?: number;      // ms : retrouvailles (retour après une longue absence)
+  wokeAt?: number;     // ms : dernier réveil naturel
+  bisous?: number; bisouDay?: number; // bisous du jour
+  pause?: 1;           // la coupure du site de novembre 2026 a déjà été rattrapée (voir resumeAfterOutage)
 }
+
+// Heure de construction du jeu, fixée par vite.config.ts (absente dans npm run simulate).
+declare const __BUILD_TIME__: number | undefined;
+const BUILD_TIME = typeof __BUILD_TIME__ === 'number' ? __BUILD_TIME__ : undefined;
+
+/** Début de la coupure du site : dimanche 8 novembre 2026, 17h (heure du téléphone). */
+export const OUTAGE_START = new Date(2026, 10, 8, 17, 0).getTime();
 
 /**
  * Met à niveau une sauvegarde d'une version précédente : le kikou garde son stade, sa croissance
@@ -50,7 +64,40 @@ export function migrate(raw: any, now = Date.now()): KikouSave | null {
   if (raw.v === 1) raw = { ...raw, v: 2, X: P.X_rest, poops: 0, poopAt: [] };
   if (raw.v === 2) raw = revive({ ...raw, v: 3, w: 0 }, now);
   if (raw.v !== SAVE_VERSION) return null;
+  if (!raw.pause) raw = resumeAfterOutage(raw, Math.min(now, BUILD_TIME ?? now));
   return raw as KikouSave;
+}
+
+/**
+ * Coupure du site (compte GitHub suspendu) à partir du dimanche 8 novembre 17h : le jeu ne s'ouvrait
+ * plus et les kikous sont partis faute de soins. Une seule fois par sauvegarde, la partie reprend
+ * l'état de dimanche 17h, et le temps ne recommence à compter qu'à `resume` (mise en ligne de ce
+ * correctif) : rien n'est rejoué entre les deux.
+ * - Pas encore parti et pas ouvert depuis dimanche 17h : on rattrape jusqu'à 17h, puis on saute à
+ *   `resume`. S'il part avant 17h, c'était sans rapport avec la coupure : il reste parti.
+ * - Ouvert après dimanche 17h et toujours là (nouvelle partie…) : rien ne change.
+ * - Parti entre dimanche 17h et `resume` : son état de 17h n'est plus connu, il revient comme après
+ *   le bug des cartes postales (même stade et même croissance, rassasié et calme).
+ */
+export function resumeAfterOutage(raw: any, resume: number) {
+  let s = { ...raw, pause: 1 };
+  if (s.won) return s;
+  if (s.gone) return s.gone.at >= OUTAGE_START && s.gone.at <= resume + STEP_MS ? revive(s, resume) : s;
+  // ouvert après dimanche 17h (nouvelle partie, ou partie restée en vie) : rien à rattraper
+  if (s.t >= OUTAGE_START) return s;
+  const k = new Kikou(s);
+  k.catchUp(Math.min(OUTAGE_START, resume));
+  s = k.toJSON();
+  if (s.gone) return s;
+  const t = Math.floor(resume / STEP_MS) * STEP_MS;
+  if (s.t < t) {
+    const skip = t - s.t;
+    s.t = t;
+    // ce qui était prévu pendant la coupure est décalé d'autant (digestion, réveil forcé)
+    s.poopAt = (s.poopAt ?? []).map((x: number) => x + skip);
+    if (Number.isFinite(s.wokenUntil) && s.wokenUntil > 0) s.wokenUntil += skip;
+  }
+  return s;
 }
 
 /**
@@ -83,6 +130,8 @@ function inWindow(h: number, [a, b]: [number, number]) {
   return a < b ? a <= h && h < b : h >= a || h < b;
 }
 const clamp = (x: number) => Math.max(0, Math.min(100, x));
+const isCare = (a: Action): a is Care => (CARES as readonly string[]).includes(a);
+const POSITIVE: Reaction[] = ['content', 'fete', 'amuse', 'blotti', 'bisou', 'pardonne', 'ravi'];
 
 /**
  * Rend la suite de réactions lisible : pas de réaction positive après « pas content »,
@@ -90,7 +139,7 @@ const clamp = (x: number) => Math.max(0, Math.min(100, x));
  */
 function tidy(r: Reaction[]): Reaction[] {
   let out = r.filter((x, i) => r.indexOf(x) === i);
-  if (out.includes('pascontent') || out.includes('reveille')) out = out.filter((x) => x !== 'content' && x !== 'fete');
+  if (out.includes('pascontent') || out.includes('reveille')) out = out.filter((x) => !POSITIVE.includes(x));
   if (out.includes('reveille')) out = out.filter((x) => x !== 'pascontent');
   return out.slice(0, 2);
 }
@@ -114,7 +163,7 @@ export class Kikou {
       asleep: false, wokenUntil: -Infinity,
       hist: [], sZero: 0, aMax: 0, day: -1, noise: 1, jit: 0,
       gone: null, won: null, shownStage: 0, dreamDay: -1, album: [],
-      X: P.X_rest, poops: 0, poopAt: [], w: 0,
+      X: P.X_rest, poops: 0, poopAt: [], w: 0, pause: 1,
     });
   }
 
@@ -153,7 +202,9 @@ export class Kikou {
     }
     const win = this.sleepWindow(ms);
     const want = win && ms >= s.wokenUntil && s.X < P.X_nosleep; // trop excité : il ne s'endort pas
+    const was = s.asleep;
     s.asleep = want || s.E < P.E_collapse || (s.asleep && s.E < 30 && win);
+    if (was && !s.asleep) s.wokeAt = ms;
     if (s.asleep) {
       s.S -= P.S_decay_sleep * s.noise * DT;
       s.E += P.E_gain_sleep * DT;
@@ -206,9 +257,34 @@ export class Kikou {
     return this.s.hist.filter(([t, a]) => a === action && now - t < hours * H).length;
   }
 
+  private bisousToday(now: number) {
+    return this.s.bisouDay === dayKey(now) ? this.s.bisous ?? 0 : 0;
+  }
+
+  /**
+   * Le soin que le kikou réclame en ce moment (montré par une bulle), ou null.
+   * Câlin : trop excité, agacé, ou juste avant de dormir. Bisou : il boude, vient de se réveiller
+   * ou retrouve le joueur après une longue absence. Pip : en forme, calme et pas joué depuis 3 h.
+   */
+  envie(now: number): Care | null {
+    const s = this.s;
+    if (this.over || s.asleep || s.S < 30 || s.A >= 70) return null;
+    if (s.X >= P.want_X || s.A >= P.want_A) return 'calin';
+    if (s.E < 60 && !this.sleepWindow(now) && this.sleepWindow(now + H) && this.recent('calin', 1, now) === 0) return 'calin';
+    const away = s.lastAct !== undefined && now - s.lastAct >= P.absent_h * H;
+    const fresh = (t: number | undefined) => t !== undefined && now - t >= 0 && now - t < P.want_bisou_h * H;
+    if (this.bisousToday(now) < P.bisou_max && (s.R > P.want_bisou_R || away || fresh(s.hello) || fresh(s.wokeAt))) return 'bisou';
+    if (s.E >= P.want_pip_E && s.X < P.want_pip_X && this.recent('pip', P.want_pip_h, now) === 0
+      && !this.sleepWindow(now + 0.5 * H)) return 'pip';
+    return null;
+  }
+
   /** Applique une action du joueur à l'instant `now` et renvoie la suite de réactions. */
   act(action: Action, now: number): Reaction[] {
     const s = this.s, r: Reaction[] = [];
+    const wish = isCare(action) ? this.envie(now) : null;
+    if (s.lastAct !== undefined && now - s.lastAct >= P.absent_h * H) s.hello = now;
+    s.lastAct = now;
     if (action === 'nettoyer') {
       // nettoyer ne réveille pas et ne compte pas comme une sollicitation
       if (s.poops === 0) return ['rien'];
@@ -216,9 +292,13 @@ export class Kikou {
       this.clampAll();
       return ['propre'];
     }
-    const n2h = this.recent(action, 2, now);
+    // rendement décroissant commun aux soins : alterner pip, câlin et bisou à l'aveugle ne rapporte plus
+    const nCare = CARES.reduce((n, a) => n + this.recent(a, 2, now), 0);
     const n10 = this.recent(action, 10 / 60, now);
-    const f = 1 / (1 + n2h);
+    const f = 1 / (1 + P.care_tau * nCare);
+    const hit = wish !== null && wish === action;
+    const miss = wish !== null && wish !== action && n10 < 2; // s'il insiste, c'est déjà « pas content »
+    const m = hit ? P.want_hit : 1;
     s.hist.push([now, action]);
     s.hist = s.hist.filter(([t]) => now - t < 3 * H);
     if (n10 >= 2) { s.A += P.A_spam * (n10 - 1); r.push('pascontent'); }
@@ -245,14 +325,19 @@ export class Kikou {
       s.X += P.X_pip; s.E -= P.E_pip;
       if (s.A > 60) { s.A += 5; r.push('pascontent'); }
       else if (s.X >= P.X_over) { s.B += 3 * f; r.push('surexcite'); }
+      else if (miss) { s.B += 8 * f * P.want_miss; s.A += P.A_bof; r.push('bof'); }
       else {
-        s.B += 8 * f;
-        r.push(s.B > 85 && this.rng.random() < 0.35 ? 'fete' : 'content');
+        s.B += 8 * f * m;
+        if (hit) r.push('amuse', 'ravi');
+        else r.push(s.B > 85 && this.rng.random() < 0.35 ? 'fete' : 'amuse');
       }
     } else if (action === 'calin') {
       // calmer : apaise la colère et l'excitation, aide à s'endormir
       const wasAngry = s.A > 60;
-      s.B += 8 * f; s.A -= 12; s.X += P.X_calin; r.push(wasAngry ? 'apaise' : 'content');
+      s.B += 8 * f * (miss ? P.want_miss : m); s.A -= 12; s.X += P.X_calin;
+      if (miss) { s.A += P.A_bof; r.push('bof'); }
+      else r.push(wasAngry ? 'apaise' : 'blotti');
+      if (hit) r.push('ravi');
       this.clampAll();
       if (s.E < 45 && s.X < P.X_nosleep && this.sleepWindow(now)) {
         s.asleep = true; s.wokenUntil = now; r.push('sendort');
@@ -260,9 +345,18 @@ export class Kikou {
     } else if (action === 'bisou') {
       // aimer : bonheur, et il pardonne un peu (la rancune baisse)
       if (s.A > 60) { s.A += 5; r.push('pascontent'); }
+      else if (this.bisousToday(now) >= P.bisou_max) { s.A += P.A_bof; r.push('beurk'); }
       else {
-        s.B += 7 * f; s.A -= 4; s.X += P.X_bisou; s.R = Math.max(0, s.R - P.R_bisou * f);
-        r.push(s.B > 85 && this.rng.random() < 0.3 ? 'fete' : 'content');
+        s.bisous = this.bisousToday(now) + 1; s.bisouDay = dayKey(now);
+        const sulky = s.R > P.want_bisou_R;
+        s.R = Math.max(0, s.R - P.R_bisou * f * m);
+        if (hit) s.hello = s.wokeAt = undefined; // retrouvailles et bonjour du matin : c'est fait
+        if (miss) { s.B += 7 * f * P.want_miss; s.A += P.A_bof; r.push('bof'); }
+        else {
+          s.B += 7 * f * m; s.A -= 4; s.X += P.X_bisou;
+          if (hit) r.push(sulky ? 'pardonne' : 'bisou', 'ravi');
+          else r.push(sulky ? 'pardonne' : s.B > 85 && this.rng.random() < 0.3 ? 'fete' : 'bisou');
+        }
       }
     }
     this.clampAll();
